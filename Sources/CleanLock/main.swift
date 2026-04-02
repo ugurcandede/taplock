@@ -296,9 +296,14 @@ func main() {
     _ = observer // keep the observer alive
 }
 
-/// Play a system sound by name. Does nothing if sound not found.
+/// Play a system sound by name and wait for it to finish.
 func playSound(_ name: String) {
-    NSSound(named: NSSound.Name(name))?.play()
+    guard let sound = NSSound(named: NSSound.Name(name)) else { return }
+    sound.play()
+    // Wait for sound to finish before returning
+    while sound.isPlaying {
+        Thread.sleep(forTimeInterval: 0.05)
+    }
 }
 
 /// Parse a hex color string (e.g. "000000", "FF0000") into RGB components.
