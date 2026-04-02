@@ -3,8 +3,8 @@ import Foundation
 
 /// Controls screen brightness via private DisplayServices framework.
 /// Falls back gracefully if the API is unavailable.
-final class BrightnessControl {
-    static let shared = BrightnessControl()
+public final class BrightnessControl {
+    public static let shared = BrightnessControl()
 
     private var originalBrightness: Float?
     private var getBrightness: GetBrightnessFn?
@@ -28,12 +28,12 @@ final class BrightnessControl {
     }
 
     /// Whether brightness control is available on this system.
-    var isAvailable: Bool {
+    public var isAvailable: Bool {
         return getBrightness != nil && setBrightness != nil
     }
 
     /// Save current brightness and dim to minimum.
-    func dim() {
+    public func dim() {
         guard let get = getBrightness, let set = setBrightness else { return }
         var current: Float = 0
         if get(CGMainDisplayID(), &current) == 0 {
@@ -43,7 +43,7 @@ final class BrightnessControl {
     }
 
     /// Restore brightness to the value saved by `dim()`.
-    func restore() {
+    public func restore() {
         guard let set = setBrightness, let original = originalBrightness else { return }
         _ = set(CGMainDisplayID(), original)
         originalBrightness = nil

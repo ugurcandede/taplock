@@ -2,13 +2,13 @@ import Cocoa
 import Foundation
 
 /// Error types for input blocking operations.
-enum CleanLockError: Error, CustomStringConvertible {
+public enum CleanLockError: Error, CustomStringConvertible {
     case accessibilityDenied
     case eventTapCreationFailed
     case alreadyBlocking
     case alreadyRunning
 
-    var description: String {
+    public var description: String {
         switch self {
         case .accessibilityDenied:
             return "Accessibility permission is required to block input."
@@ -24,16 +24,16 @@ enum CleanLockError: Error, CustomStringConvertible {
 
 /// Notification posted when emergency cancel is triggered (⌘⌥⌃L held 3s).
 extension Notification.Name {
-    static let cleanLockEmergencyCancel = Notification.Name("cleanLockEmergencyCancel")
+    public static let cleanLockEmergencyCancel = Notification.Name("cleanLockEmergencyCancel")
 }
 
 /// Blocks keyboard and trackpad/mouse input via CGEvent tap.
-final class InputBlocker {
-    static let shared = InputBlocker()
+public final class InputBlocker {
+    public static let shared = InputBlocker()
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private(set) var isBlocking = false
+    public private(set) var isBlocking = false
     private var keyboardOnly = false
     private var cancelTriggered = false
 
@@ -56,7 +56,7 @@ final class InputBlocker {
     /// Start blocking input.
     /// - Parameter keyboardOnly: If true, only keyboard events are blocked.
     /// - Throws: `CleanLockError` if already blocking, no accessibility, or tap creation fails.
-    func startBlocking(keyboardOnly: Bool = false) throws {
+    public func startBlocking(keyboardOnly: Bool = false) throws {
         guard !isBlocking else { throw CleanLockError.alreadyBlocking }
         guard InputBlocker.checkAccessibility() else { throw CleanLockError.accessibilityDenied }
 
@@ -112,7 +112,7 @@ final class InputBlocker {
     }
 
     /// Stop blocking input and clean up.
-    func stopBlocking() {
+    public func stopBlocking() {
         guard isBlocking else { return }
 
         if let tap = eventTap {
@@ -136,19 +136,19 @@ final class InputBlocker {
     // MARK: - Accessibility
 
     /// Check if the process has Accessibility permission.
-    static func checkAccessibility() -> Bool {
+    public static func checkAccessibility() -> Bool {
         return AXIsProcessTrusted()
     }
 
     /// Prompt the user for Accessibility permission by opening System Settings.
-    static func requestAccessibility() {
+    public static func requestAccessibility() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
     }
 
     /// Guide the user through granting Accessibility permission.
     /// - Returns: `true` if permission was granted within the timeout.
-    static func waitForAccessibility(timeout: TimeInterval = 30) -> Bool {
+    public static func waitForAccessibility(timeout: TimeInterval = 30) -> Bool {
         if checkAccessibility() { return true }
 
         print("CleanLock needs Accessibility permission to block input.")

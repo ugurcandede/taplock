@@ -2,33 +2,49 @@ import Cocoa
 import Foundation
 
 /// Configuration for a CleanLock session.
-struct SessionConfig {
-    var duration: Int
-    var keyboardOnly: Bool = false
-    var dim: Bool = false
-    var silent: Bool = false
-    var showOverlay: Bool = true
-    var overlayColor: (r: Double, g: Double, b: Double)? = nil
+public struct SessionConfig {
+    public var duration: Int
+    public var keyboardOnly: Bool
+    public var dim: Bool
+    public var silent: Bool
+    public var showOverlay: Bool
+    public var overlayColor: (r: Double, g: Double, b: Double)?
+
+    public init(
+        duration: Int,
+        keyboardOnly: Bool = false,
+        dim: Bool = false,
+        silent: Bool = false,
+        showOverlay: Bool = true,
+        overlayColor: (r: Double, g: Double, b: Double)? = nil
+    ) {
+        self.duration = duration
+        self.keyboardOnly = keyboardOnly
+        self.dim = dim
+        self.silent = silent
+        self.showOverlay = showOverlay
+        self.overlayColor = overlayColor
+    }
 }
 
 /// Orchestrates a complete lock session: input blocking, overlay, brightness, sounds.
 /// Reusable by both CLI and future UI app.
-final class CleanLockSession {
+public final class CleanLockSession {
     private let config: SessionConfig
     private var overlayController: CountdownWindowController?
     private var emergencyObserver: NSObjectProtocol?
-    private(set) var isActive = false
+    public private(set) var isActive = false
 
     /// Called when the session ends (normal timeout, emergency cancel, or programmatic cancel).
-    var onEnd: (() -> Void)?
+    public var onEnd: (() -> Void)?
 
-    init(config: SessionConfig) {
+    public init(config: SessionConfig) {
         self.config = config
     }
 
     /// Start the lock session. Call from main thread.
     /// - Throws: `CleanLockError` on failure.
-    func start() throws {
+    public func start() throws {
         guard !isActive else { throw CleanLockError.alreadyBlocking }
 
         try InputBlocker.shared.startBlocking(keyboardOnly: config.keyboardOnly)
@@ -59,7 +75,7 @@ final class CleanLockSession {
     }
 
     /// Cancel the session programmatically.
-    func cancel() {
+    public func cancel() {
         end()
     }
 

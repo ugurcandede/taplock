@@ -1,3 +1,4 @@
+import CleanLockCore
 import Cocoa
 import Foundation
 

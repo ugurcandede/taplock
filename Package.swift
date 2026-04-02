@@ -8,15 +8,24 @@ let package = Package(
         .macOS(.v13)
     ],
     products: [
-        .executable(name: "cleanlock", targets: ["CleanLock"])
+        .library(name: "CleanLockCore", targets: ["CleanLockCore"]),
+        .executable(name: "cleanlock", targets: ["CleanLock"]),
     ],
     targets: [
+        .target(
+            name: "CleanLockCore",
+            path: "Sources/CleanLockCore",
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
+            ]
+        ),
         .executableTarget(
             name: "CleanLock",
+            dependencies: ["CleanLockCore"],
             path: "Sources/CleanLock",
             swiftSettings: [
                 .swiftLanguageMode(.v5)
             ]
-        )
+        ),
     ]
 )
