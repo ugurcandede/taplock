@@ -5,6 +5,7 @@ import SwiftUI
 struct CountdownView: View {
     @ObservedObject var timer: CountdownTimer
     var backgroundColor: Color
+    var textColor: Color
 
     var body: some View {
         ZStack {
@@ -16,17 +17,17 @@ struct CountdownView: View {
 
                 Text(timer.currentTime)
                     .font(.system(size: 28, weight: .regular, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(textColor.opacity(0.4))
 
                 Text(timer.formattedTime)
                     .font(.system(size: 120, weight: .light, design: .monospaced))
-                    .foregroundColor(.white)
+                    .foregroundColor(textColor)
 
                 Spacer()
 
                 Text("Press ⌘⌥⌃L for 3 seconds to cancel")
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(textColor.opacity(0.6))
                     .padding(.bottom, 60)
             }
         }
@@ -86,6 +87,7 @@ final class CountdownWindowController {
     private var panel: NSPanel?
     private let timer: CountdownTimer
     private let backgroundColor: Color
+    private let textColor: Color
 
     /// - Parameters:
     ///   - duration: Lock duration in seconds.
@@ -94,8 +96,12 @@ final class CountdownWindowController {
         self.timer = CountdownTimer(duration: duration)
         if let bg = backgroundColor {
             self.backgroundColor = Color(red: bg.r, green: bg.g, blue: bg.b)
+            // Perceived luminance: dark bg → white text, light bg → black text
+            let luminance = 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b
+            self.textColor = luminance > 0.5 ? .black : .white
         } else {
             self.backgroundColor = Color.black.opacity(0.85)
+            self.textColor = .white
         }
     }
 
@@ -115,7 +121,7 @@ final class CountdownWindowController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.ignoresMouseEvents = true
 
-        let hostingView = NSHostingView(rootView: CountdownView(timer: timer, backgroundColor: backgroundColor))
+        let hostingView = NSHostingView(rootView: CountdownView(timer: timer, backgroundColor: backgroundColor, textColor: textColor))
         hostingView.frame = screen.frame
         panel.contentView = hostingView
 
