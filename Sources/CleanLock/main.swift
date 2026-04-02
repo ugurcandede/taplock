@@ -101,13 +101,15 @@ func printHelp() -> Never {
     Temporarily disable keyboard and trackpad input while cleaning your Mac.
 
     ARGUMENTS:
-      duration          Lock duration. Examples: 30, 30s, 2m, 1m30s (default: 60s)
+      duration          Lock duration. Examples: 30, 30s, 2m, 1m30s
+                        No duration = lock until cancelled (safety auto-unlock: 5m)
 
     OPTIONS:
       --cancel          Cancel an active lock session
       --keyboard-only   Block keyboard only, not trackpad
       --no-overlay      Skip the full-screen overlay UI
       --delay <seconds> Wait before activating lock
+      --color <hex>     Overlay background color (e.g. 000000 for black, FF0000 for red)
       -h, --help        Show this help
       -v, --version     Show version
     """)
@@ -137,10 +139,12 @@ func main() {
     let args = Array(CommandLine.arguments.dropFirst())
 
     // Parse flags
-    var duration: Int = 60
+    let maxSafetyDuration = 300 // 5 minutes
+    var duration: Int? = nil
     var keyboardOnly = false
     var noOverlay = false
     var delay: Int = 0
+    var overlayColorHex: String? = nil
 
     var positionalArgs: [String] = []
     var i = 0
@@ -165,6 +169,13 @@ func main() {
                 exit(ExitCode.generalError.rawValue)
             }
             delay = d
+        case "--color":
+            i += 1
+            guard i < args.count else {
+                fputs("Error: --color requires a hex value (e.g. 000000, FF0000).\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            overlayColorHex = args[i]
         default:
             if arg.hasPrefix("-") {
                 fputs("Error: Unknown option '\(arg)'. Use --help for usage.\n", stderr)
@@ -184,6 +195,9 @@ func main() {
         duration = parsed
     }
 
+    // Effective duration: user-specified or safety max
+    let effectiveDuration = duration ?? maxSafetyDuration
+
     // Check accessibility permission
     if !InputBlocker.checkAccessibility() {
         if !InputBlocker.waitForAccessibility(timeout: 30) {
@@ -200,7 +214,10 @@ func main() {
 
     // Countdown before locking
     if delay > 0 {
-        print("CleanLock will activate in \(delay) seconds for \(formatDuration(duration))...")
+        let durationText = duration == nil
+            ? "until cancelled (safety: \(formatDuration(maxSafetyDuration)))"
+            : formatDuration(effectiveDuration)
+        print("CleanLock will activate in \(delay) seconds for \(durationText)...")
         for i in (1...delay).reversed() {
             print("  \(i)...")
             Thread.sleep(forTimeInterval: 1.0)
@@ -216,12 +233,20 @@ func main() {
         exit(ExitCode.generalError.rawValue)
     }
 
-    print("Locked! Press ⌘⌥⌃L for 3 seconds to cancel.")
+    if duration == nil {
+        print("Locked until cancelled! Safety auto-unlock in \(formatDuration(maxSafetyDuration)). Press ⌘⌥⌃L for 3 seconds to cancel.")
+    } else {
+        print("Locked for \(formatDuration(effectiveDuration))! Press ⌘⌥⌃L for 3 seconds to cancel.")
+    }
 
     // Show overlay if requested
     var overlayController: CountdownWindowController?
     if !noOverlay {
-        overlayController = CountdownWindowController(duration: duration)
+        let color = overlayColorHex.flatMap { parseHexColor($0) }
+        overlayController = CountdownWindowController(
+            duration: effectiveDuration,
+            backgroundColor: color
+        )
         overlayController?.showOverlay()
     }
 
@@ -238,7 +263,7 @@ func main() {
     }
 
     // Schedule auto-unlock after duration
-    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(duration)) {
+    DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(effectiveDuration)) {
         guard !cancelled else { return }
         InputBlocker.shared.stopBlocking()
         overlayController?.closeOverlay()
@@ -253,6 +278,17 @@ func main() {
     app.run()
 
     _ = observer // keep the observer alive
+}
+
+/// Parse a hex color string (e.g. "000000", "FF0000") into RGB components.
+func parseHexColor(_ hex: String) -> (r: Double, g: Double, b: Double)? {
+    let clean = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+    guard clean.count == 6, let value = UInt32(clean, radix: 16) else { return nil }
+    return (
+        r: Double((value >> 16) & 0xFF) / 255.0,
+        g: Double((value >> 8) & 0xFF) / 255.0,
+        b: Double(value & 0xFF) / 255.0
+    )
 }
 
 /// Format seconds into a human-readable string.

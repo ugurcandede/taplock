@@ -4,10 +4,11 @@ import SwiftUI
 /// SwiftUI view displaying the countdown timer and cancel hint.
 struct CountdownView: View {
     @ObservedObject var timer: CountdownTimer
+    var backgroundColor: Color
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.85)
+            backgroundColor
                 .ignoresSafeArea()
 
             VStack(spacing: 40) {
@@ -68,9 +69,18 @@ final class CountdownTimer: ObservableObject {
 final class CountdownWindowController {
     private var panel: NSPanel?
     private let timer: CountdownTimer
+    private let backgroundColor: Color
 
-    init(duration: Int) {
+    /// - Parameters:
+    ///   - duration: Lock duration in seconds.
+    ///   - backgroundColor: Custom RGB tuple, or nil for default (black 0.85 opacity).
+    init(duration: Int, backgroundColor: (r: Double, g: Double, b: Double)? = nil) {
         self.timer = CountdownTimer(duration: duration)
+        if let bg = backgroundColor {
+            self.backgroundColor = Color(red: bg.r, green: bg.g, blue: bg.b)
+        } else {
+            self.backgroundColor = Color.black.opacity(0.85)
+        }
     }
 
     func showOverlay() {
@@ -89,7 +99,7 @@ final class CountdownWindowController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.ignoresMouseEvents = true
 
-        let hostingView = NSHostingView(rootView: CountdownView(timer: timer))
+        let hostingView = NSHostingView(rootView: CountdownView(timer: timer, backgroundColor: backgroundColor))
         hostingView.frame = screen.frame
         panel.contentView = hostingView
 
