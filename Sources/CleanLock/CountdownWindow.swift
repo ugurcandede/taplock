@@ -14,6 +14,10 @@ struct CountdownView: View {
             VStack(spacing: 40) {
                 Spacer()
 
+                Text(timer.currentTime)
+                    .font(.system(size: 28, weight: .regular, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.4))
+
                 Text(timer.formattedTime)
                     .font(.system(size: 120, weight: .light, design: .monospaced))
                     .foregroundColor(.white)
@@ -32,11 +36,22 @@ struct CountdownView: View {
 /// Observable timer that counts down from a given duration.
 final class CountdownTimer: ObservableObject {
     @Published var remainingSeconds: Double
+    @Published var currentTime: String
 
     private var displayLink: Timer?
+    private let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        return f
+    }()
 
     init(duration: Int) {
         self.remainingSeconds = Double(duration)
+        self.currentTime = {
+            let f = DateFormatter()
+            f.dateFormat = "HH:mm"
+            return f.string(from: Date())
+        }()
     }
 
     var formattedTime: String {
@@ -56,6 +71,7 @@ final class CountdownTimer: ObservableObject {
             guard let self = self else { return }
             let elapsed = Date().timeIntervalSince(startDate)
             self.remainingSeconds = max(0, initialSeconds - elapsed)
+            self.currentTime = self.timeFormatter.string(from: Date())
         }
     }
 
