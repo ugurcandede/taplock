@@ -268,24 +268,15 @@ func main() {
         forName: .cleanLockEmergencyCancel, object: nil, queue: .main
     ) { _ in
         cancelled = true
-        BrightnessControl.shared.restore()
-        if !silent { playSound("Glass") }
         print("\nEmergency cancel triggered.")
-        overlayController?.closeOverlay()
-        removePIDFile()
-        exit(ExitCode.success.rawValue)
+        cleanExit(overlay: overlayController, silent: silent)
     }
 
     // Schedule auto-unlock after duration
     DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(effectiveDuration)) {
         guard !cancelled else { return }
-        InputBlocker.shared.stopBlocking()
-        BrightnessControl.shared.restore()
-        if !silent { playSound("Glass") }
-        overlayController?.closeOverlay()
-        removePIDFile()
         print("\nCleanLock session ended.")
-        exit(ExitCode.success.rawValue)
+        cleanExit(overlay: overlayController, silent: silent)
     }
 
     // Run the main run loop (required for CGEvent tap + overlay)
@@ -296,13 +287,25 @@ func main() {
     _ = observer // keep the observer alive
 }
 
-/// Play a system sound by name and wait for it to finish.
+/// Play a system sound by name (non-blocking).
 func playSound(_ name: String) {
-    guard let sound = NSSound(named: NSSound.Name(name)) else { return }
-    sound.play()
-    // Wait for sound to finish before returning
-    while sound.isPlaying {
-        Thread.sleep(forTimeInterval: 0.05)
+    NSSound(named: NSSound.Name(name))?.play()
+}
+
+/// Clean up and exit, with a short delay to let sound finish.
+func cleanExit(
+    overlay: CountdownWindowController?,
+    silent: Bool,
+    code: ExitCode = .success
+) {
+    InputBlocker.shared.stopBlocking()
+    BrightnessControl.shared.restore()
+    if !silent { playSound("Glass") }
+    overlay?.closeOverlay()
+    removePIDFile()
+    // Brief delay so the sound can play before process exits
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        exit(code.rawValue)
     }
 }
 
