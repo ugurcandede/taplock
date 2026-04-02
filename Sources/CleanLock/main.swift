@@ -186,6 +186,13 @@ func main() {
     // Write PID file
     writePIDFile()
 
+    // Countdown before locking — gives time to switch windows for testing
+    print("CleanLock will activate in 3 seconds for \(formatDuration(duration))...")
+    for i in (1...3).reversed() {
+        print("  \(i)...")
+        Thread.sleep(forTimeInterval: 1.0)
+    }
+
     // Start blocking
     do {
         try InputBlocker.shared.startBlocking(keyboardOnly: keyboardOnly)
@@ -195,7 +202,7 @@ func main() {
         exit(ExitCode.generalError.rawValue)
     }
 
-    print("CleanLock active for \(formatDuration(duration)). Press ⌘⌥⌃L for 3 seconds to cancel.")
+    print("Locked! Press ⌘⌥⌃L for 3 seconds to cancel.")
 
     // Show overlay if requested
     var overlayController: CountdownWindowController?

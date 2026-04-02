@@ -39,6 +39,9 @@ final class InputBlocker {
     /// Tracks when the emergency cancel combo was first detected.
     var emergencyCancelStart: Date?
 
+    /// The screen center point for cursor locking.
+    var cursorLockPoint: CGPoint = .zero
+
     /// The L key's macOS virtual keycode.
     private static let lKeyCode: Int64 = 0x25
 
@@ -72,6 +75,20 @@ final class InputBlocker {
                 | (1 << CGEventType.scrollWheel.rawValue)
                 | (1 << CGEventType.leftMouseDragged.rawValue)
                 | (1 << CGEventType.rightMouseDragged.rawValue)
+                // Gesture events (3-finger swipe, pinch, etc.)
+                | (1 << 29) // NSEventTypeGesture
+                | (1 << 30) // NSEventTypeBeginGesture
+                | (1 << 31) // NSEventTypeEndGesture
+
+            // Store screen center for cursor locking
+            if let screen = NSScreen.main {
+                self.cursorLockPoint = CGPoint(
+                    x: screen.frame.midX,
+                    y: screen.frame.midY
+                )
+            }
+            // Hide cursor during lock
+            NSCursor.hide()
         }
 
         let userInfo = Unmanaged.passUnretained(self).toOpaque()
@@ -105,6 +122,11 @@ final class InputBlocker {
         }
         if let source = runLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
+
+        // Restore cursor
+        if !keyboardOnly {
+            NSCursor.unhide()
         }
 
         eventTap = nil
@@ -169,6 +191,11 @@ final class InputBlocker {
 
         guard let userInfo = userInfo else { return nil }
         let blocker = Unmanaged<InputBlocker>.fromOpaque(userInfo).takeUnretainedValue()
+
+        // Lock cursor to screen center on any mouse movement
+        if type == .mouseMoved || type == .leftMouseDragged || type == .rightMouseDragged {
+            CGWarpMouseCursorPosition(blocker.cursorLockPoint)
+        }
 
         // Emergency cancel detection: ⌘⌥⌃L held for 3 seconds
         if type == .keyDown || type == .flagsChanged {
