@@ -96,7 +96,6 @@ final class CountdownWindowController {
         self.timer = CountdownTimer(duration: duration)
         if let bg = backgroundColor {
             self.backgroundColor = Color(red: bg.r, green: bg.g, blue: bg.b)
-            // Perceived luminance: dark bg → white text, light bg → black text
             let luminance = 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b
             self.textColor = luminance > 0.5 ? .black : .white
         } else {
@@ -121,7 +120,13 @@ final class CountdownWindowController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.ignoresMouseEvents = true
 
-        let hostingView = NSHostingView(rootView: CountdownView(timer: timer, backgroundColor: backgroundColor, textColor: textColor))
+        let hostingView = NSHostingView(
+            rootView: CountdownView(
+                timer: timer,
+                backgroundColor: backgroundColor,
+                textColor: textColor
+            )
+        )
         hostingView.frame = screen.frame
         panel.contentView = hostingView
 

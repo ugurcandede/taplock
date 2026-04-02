@@ -6,7 +6,7 @@ enum CleanLockError: Error, CustomStringConvertible {
     case accessibilityDenied
     case eventTapCreationFailed
     case alreadyBlocking
-    case notBlocking
+    case alreadyRunning
 
     var description: String {
         switch self {
@@ -16,8 +16,8 @@ enum CleanLockError: Error, CustomStringConvertible {
             return "Failed to create CGEvent tap. Is Accessibility permission granted?"
         case .alreadyBlocking:
             return "Input blocking is already active."
-        case .notBlocking:
-            return "No active blocking session."
+        case .alreadyRunning:
+            return "Another CleanLock session is already running."
         }
     }
 }
@@ -35,6 +35,7 @@ final class InputBlocker {
     private var runLoopSource: CFRunLoopSource?
     private(set) var isBlocking = false
     private var keyboardOnly = false
+    private var cancelTriggered = false
 
     /// Tracks when the emergency cancel combo was first detected.
     var emergencyCancelStart: Date?
@@ -61,6 +62,7 @@ final class InputBlocker {
 
         self.keyboardOnly = keyboardOnly
         self.emergencyCancelStart = nil
+        self.cancelTriggered = false
 
         var eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.keyUp.rawValue)
@@ -75,19 +77,16 @@ final class InputBlocker {
                 | (1 << CGEventType.scrollWheel.rawValue)
                 | (1 << CGEventType.leftMouseDragged.rawValue)
                 | (1 << CGEventType.rightMouseDragged.rawValue)
-                // Gesture events (3-finger swipe, pinch, etc.)
                 | (1 << 29) // NSEventTypeGesture
                 | (1 << 30) // NSEventTypeBeginGesture
                 | (1 << 31) // NSEventTypeEndGesture
 
-            // Store screen center for cursor locking
             if let screen = NSScreen.main {
                 self.cursorLockPoint = CGPoint(
                     x: screen.frame.midX,
                     y: screen.frame.midY
                 )
             }
-            // Hide cursor during lock
             NSCursor.hide()
         }
 
@@ -124,7 +123,6 @@ final class InputBlocker {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
         }
 
-        // Restore cursor
         if !keyboardOnly {
             NSCursor.unhide()
         }
@@ -174,11 +172,9 @@ final class InputBlocker {
 
     // MARK: - CGEvent Tap Callback
 
-    /// The C-compatible callback for the CGEvent tap.
     private static let eventTapCallback: CGEventTapCallBack = {
         proxy, type, event, userInfo -> Unmanaged<CGEvent>? in
 
-        // If the tap is disabled by the system, re-enable it.
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let userInfo = userInfo {
                 let blocker = Unmanaged<InputBlocker>.fromOpaque(userInfo).takeUnretainedValue()
@@ -192,7 +188,7 @@ final class InputBlocker {
         guard let userInfo = userInfo else { return nil }
         let blocker = Unmanaged<InputBlocker>.fromOpaque(userInfo).takeUnretainedValue()
 
-        // Lock cursor to screen center on any mouse movement
+        // Lock cursor to screen center
         if type == .mouseMoved || type == .leftMouseDragged || type == .rightMouseDragged {
             CGWarpMouseCursorPosition(blocker.cursorLockPoint)
         }
@@ -212,8 +208,10 @@ final class InputBlocker {
                             blocker.emergencyCancelStart = Date()
                         }
                         if let start = blocker.emergencyCancelStart,
-                           Date().timeIntervalSince(start) >= emergencyHoldDuration
+                           Date().timeIntervalSince(start) >= emergencyHoldDuration,
+                           !blocker.cancelTriggered
                         {
+                            blocker.cancelTriggered = true
                             DispatchQueue.main.async {
                                 blocker.stopBlocking()
                                 NotificationCenter.default.post(
@@ -229,7 +227,6 @@ final class InputBlocker {
             }
         }
 
-        // Block the event
         return nil
     }
 }
