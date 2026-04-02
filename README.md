@@ -39,6 +39,8 @@ cleanlock 1m30s                    # Lock for 1 minute 30 seconds
 --no-overlay        Skip the full-screen overlay UI
 --delay <seconds>   Wait before activating lock
 --color <hex>       Overlay background color (e.g. 000000 for pure black)
+--dim               Reduce screen brightness to minimum during lock
+--silent            Disable sound effects
 -h, --help          Show help
 -v, --version       Show version
 ```
@@ -48,6 +50,9 @@ cleanlock 1m30s                    # Lock for 1 minute 30 seconds
 ```bash
 # Clean your screen with a pure black background
 cleanlock --color 000000
+
+# Full cleaning mode: black screen, dimmed brightness, no sound
+cleanlock --color 000000 --dim --silent
 
 # Lock keyboard only for 2 minutes, with 5 second delay to switch windows
 cleanlock 2m --keyboard-only --delay 5
@@ -68,9 +73,11 @@ CleanLock requires **Accessibility** permission to block input. On first run, it
 
 - **Keyboard & trackpad blocking** via `CGEvent` tap at session level
 - **Cursor locking** — cursor is hidden and pinned to screen center during lock
-- **Full-screen overlay** — semi-transparent countdown timer (customizable color)
+- **Full-screen overlay** — semi-transparent countdown timer with clock (customizable color)
+- **Sound feedback** — system sounds on lock start/end
+- **Brightness control** — dims screen to minimum during lock, restores on exit
 - **IPC** — PID file at `/tmp/cleanlock.pid` for cross-terminal cancel via `--cancel`
-- **Safety** — SIGTERM/SIGINT handlers always restore input before exit
+- **Safety** — SIGTERM/SIGINT handlers always restore input and brightness before exit
 
 ## Requirements
 
