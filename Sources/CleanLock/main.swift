@@ -111,6 +111,7 @@ func printHelp() -> Never {
       --delay <seconds> Wait before activating lock
       --color <hex>     Overlay background color (e.g. 000000 for black, FF0000 for red)
       --silent          Disable sound effects
+      --dim             Reduce screen brightness to minimum during lock
       -h, --help        Show this help
       -v, --version     Show version
     """)
@@ -127,6 +128,7 @@ func printVersion() -> Never {
 func setupSignalHandlers() {
     let handler: @convention(c) (Int32) -> Void = { _ in
         InputBlocker.shared.stopBlocking()
+        BrightnessControl.shared.restore()
         removePIDFile()
         exit(ExitCode.success.rawValue)
     }
@@ -147,6 +149,7 @@ func main() {
     var delay: Int = 0
     var overlayColorHex: String? = nil
     var silent = false
+    var dim = false
 
     var positionalArgs: [String] = []
     var i = 0
@@ -180,6 +183,8 @@ func main() {
             overlayColorHex = args[i]
         case "--silent":
             silent = true
+        case "--dim":
+            dim = true
         default:
             if arg.hasPrefix("-") {
                 fputs("Error: Unknown option '\(arg)'. Use --help for usage.\n", stderr)
@@ -237,6 +242,7 @@ func main() {
         exit(ExitCode.generalError.rawValue)
     }
 
+    if dim { BrightnessControl.shared.dim() }
     if !silent { playSound("Tink") }
 
     if duration == nil {
@@ -262,6 +268,7 @@ func main() {
         forName: .cleanLockEmergencyCancel, object: nil, queue: .main
     ) { _ in
         cancelled = true
+        BrightnessControl.shared.restore()
         if !silent { playSound("Glass") }
         print("\nEmergency cancel triggered.")
         overlayController?.closeOverlay()
@@ -273,6 +280,7 @@ func main() {
     DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(effectiveDuration)) {
         guard !cancelled else { return }
         InputBlocker.shared.stopBlocking()
+        BrightnessControl.shared.restore()
         if !silent { playSound("Glass") }
         overlayController?.closeOverlay()
         removePIDFile()
