@@ -107,6 +107,7 @@ func printHelp() -> Never {
       --cancel          Cancel an active lock session
       --keyboard-only   Block keyboard only, not trackpad
       --no-overlay      Skip the full-screen overlay UI
+      --delay <seconds> Wait before activating lock
       -h, --help        Show this help
       -v, --version     Show version
     """)
@@ -139,10 +140,13 @@ func main() {
     var duration: Int = 60
     var keyboardOnly = false
     var noOverlay = false
+    var delay: Int = 0
 
     var positionalArgs: [String] = []
+    var i = 0
 
-    for arg in args {
+    while i < args.count {
+        let arg = args[i]
         switch arg {
         case "--help", "-h":
             printHelp()
@@ -154,6 +158,13 @@ func main() {
             keyboardOnly = true
         case "--no-overlay":
             noOverlay = true
+        case "--delay":
+            i += 1
+            guard i < args.count, let d = Int(args[i]), d > 0 else {
+                fputs("Error: --delay requires a positive number of seconds.\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            delay = d
         default:
             if arg.hasPrefix("-") {
                 fputs("Error: Unknown option '\(arg)'. Use --help for usage.\n", stderr)
@@ -161,6 +172,7 @@ func main() {
             }
             positionalArgs.append(arg)
         }
+        i += 1
     }
 
     // Parse duration from positional argument
@@ -186,11 +198,13 @@ func main() {
     // Write PID file
     writePIDFile()
 
-    // Countdown before locking — gives time to switch windows for testing
-    print("CleanLock will activate in 3 seconds for \(formatDuration(duration))...")
-    for i in (1...3).reversed() {
-        print("  \(i)...")
-        Thread.sleep(forTimeInterval: 1.0)
+    // Countdown before locking
+    if delay > 0 {
+        print("CleanLock will activate in \(delay) seconds for \(formatDuration(duration))...")
+        for i in (1...delay).reversed() {
+            print("  \(i)...")
+            Thread.sleep(forTimeInterval: 1.0)
+        }
     }
 
     // Start blocking
