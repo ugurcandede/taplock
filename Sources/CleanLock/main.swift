@@ -110,6 +110,7 @@ func printHelp() -> Never {
       --no-overlay      Skip the full-screen overlay UI
       --delay <seconds> Wait before activating lock
       --color <hex>     Overlay background color (e.g. 000000 for black, FF0000 for red)
+      --silent          Disable sound effects
       -h, --help        Show this help
       -v, --version     Show version
     """)
@@ -145,6 +146,7 @@ func main() {
     var noOverlay = false
     var delay: Int = 0
     var overlayColorHex: String? = nil
+    var silent = false
 
     var positionalArgs: [String] = []
     var i = 0
@@ -176,6 +178,8 @@ func main() {
                 exit(ExitCode.generalError.rawValue)
             }
             overlayColorHex = args[i]
+        case "--silent":
+            silent = true
         default:
             if arg.hasPrefix("-") {
                 fputs("Error: Unknown option '\(arg)'. Use --help for usage.\n", stderr)
@@ -233,6 +237,8 @@ func main() {
         exit(ExitCode.generalError.rawValue)
     }
 
+    if !silent { playSound("Tink") }
+
     if duration == nil {
         print("Locked until cancelled! Safety auto-unlock in \(formatDuration(maxSafetyDuration)). Press ⌘⌥⌃L for 3 seconds to cancel.")
     } else {
@@ -256,6 +262,7 @@ func main() {
         forName: .cleanLockEmergencyCancel, object: nil, queue: .main
     ) { _ in
         cancelled = true
+        if !silent { playSound("Glass") }
         print("\nEmergency cancel triggered.")
         overlayController?.closeOverlay()
         removePIDFile()
@@ -266,6 +273,7 @@ func main() {
     DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(effectiveDuration)) {
         guard !cancelled else { return }
         InputBlocker.shared.stopBlocking()
+        if !silent { playSound("Glass") }
         overlayController?.closeOverlay()
         removePIDFile()
         print("\nCleanLock session ended.")
@@ -278,6 +286,11 @@ func main() {
     app.run()
 
     _ = observer // keep the observer alive
+}
+
+/// Play a system sound by name. Does nothing if sound not found.
+func playSound(_ name: String) {
+    NSSound(named: NSSound.Name(name))?.play()
 }
 
 /// Parse a hex color string (e.g. "000000", "FF0000") into RGB components.
