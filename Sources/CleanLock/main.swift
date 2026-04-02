@@ -109,7 +109,7 @@ func printHelp() -> Never {
       --keyboard-only   Block keyboard only, not trackpad
       --no-overlay      Skip the full-screen overlay UI
       --delay <seconds> Wait before activating lock
-      --color <hex>     Overlay background color (e.g. 000000 for black, FF0000 for red)
+      --color <value>   Overlay color: name (black, red, blue...) or hex (000, #fff, FF0000)
       --silent          Disable sound effects
       --dim             Reduce screen brightness to minimum during lock
       -h, --help        Show this help
@@ -254,7 +254,7 @@ func main() {
     // Show overlay if requested
     var overlayController: CountdownWindowController?
     if !noOverlay {
-        let color = overlayColorHex.flatMap { parseHexColor($0) }
+        let color = overlayColorHex.flatMap { parseColor($0) }
         overlayController = CountdownWindowController(
             duration: effectiveDuration,
             backgroundColor: color
@@ -302,8 +302,29 @@ func playSound(_ name: String) {
 }
 
 /// Parse a hex color string (e.g. "000000", "FF0000") into RGB components.
-func parseHexColor(_ hex: String) -> (r: Double, g: Double, b: Double)? {
-    let clean = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+func parseColor(_ input: String) -> (r: Double, g: Double, b: Double)? {
+    let namedColors: [String: (r: Double, g: Double, b: Double)] = [
+        "black": (0, 0, 0),
+        "white": (1, 1, 1),
+        "red": (1, 0, 0),
+        "green": (0, 0.8, 0),
+        "blue": (0, 0, 1),
+        "yellow": (1, 1, 0),
+        "orange": (1, 0.65, 0),
+        "purple": (0.5, 0, 0.5),
+        "gray": (0.5, 0.5, 0.5),
+        "grey": (0.5, 0.5, 0.5),
+    ]
+
+    if let named = namedColors[input.lowercased()] {
+        return named
+    }
+
+    // Hex parsing: fff, #fff, ffffff, #ffffff
+    var clean = input.hasPrefix("#") ? String(input.dropFirst()) : input
+    if clean.count == 3 {
+        clean = clean.map { "\($0)\($0)" }.joined()
+    }
     guard clean.count == 6, let value = UInt32(clean, radix: 16) else { return nil }
     return (
         r: Double((value >> 16) & 0xFF) / 255.0,
