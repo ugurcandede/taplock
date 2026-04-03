@@ -2,12 +2,6 @@ import CleanLockCore
 import Cocoa
 import Foundation
 
-// MARK: - Signal Safety
-
-/// Volatile flag for async-signal-safe handling.
-/// Signal handler only sets this; main run loop checks it.
-nonisolated(unsafe) var signalReceived: sig_atomic_t = 0
-
 // MARK: - Argument Parsing
 
 struct CLIOptions {
@@ -113,63 +107,73 @@ func main() {
         }
     }
 
-    // Signal handlers — only set volatile flag (async-signal-safe)
-    signal(SIGTERM) { _ in signalReceived = 1 }
-    signal(SIGINT) { _ in signalReceived = 1 }
-
     // Write PID file
     writePIDFile()
 
-    // Pre-lock delay
-    if opts.delay > 0 {
-        let durationText = opts.duration == nil
-            ? "until cancelled (safety: \(formatDuration(maxSafetyDuration)))"
-            : formatDuration(effectiveDuration)
-        print("CleanLock will activate in \(opts.delay) seconds for \(durationText)...")
-        for i in (1...opts.delay).reversed() {
-            print("  \(i)...")
-            Thread.sleep(forTimeInterval: 1.0)
-        }
-    }
-
-    // Create and start session
-    let session = CleanLockSession(config: SessionConfig(
+    // Session setup
+    let config = SessionConfig(
         duration: effectiveDuration,
         keyboardOnly: opts.keyboardOnly,
         dim: opts.dim,
         silent: opts.silent,
         showOverlay: !opts.noOverlay,
         overlayColor: overlayColor
-    ))
+    )
+
+    let session = CleanLockSession(config: config)
 
     session.onEnd = {
         removePIDFile()
-        // Delay exit so end sound can play
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             exit(ExitCode.success.rawValue)
         }
     }
 
-    do {
-        try session.start()
-    } catch {
-        fputs("Error: \(error)\n", stderr)
-        removePIDFile()
-        exit(ExitCode.generalError.rawValue)
-    }
+    // Start function (called immediately or after delay)
+    let startLock = {
+        do {
+            try session.start()
+        } catch {
+            fputs("Error: \(error)\n", stderr)
+            removePIDFile()
+            exit(ExitCode.generalError.rawValue)
+        }
 
-    if opts.duration == nil {
-        print("Locked until cancelled! Safety auto-unlock in \(formatDuration(maxSafetyDuration)). Press ⌘⌥⌃L for 3 seconds to cancel.")
-    } else {
-        print("Locked for \(formatDuration(effectiveDuration))! Press ⌘⌥⌃L for 3 seconds to cancel.")
-    }
-
-    // Poll for signal flag (async-signal-safe pattern)
-    Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
-        if signalReceived != 0 {
-            session.cancel()
+        if opts.duration == nil {
+            print("Locked until cancelled! Safety auto-unlock in \(formatDuration(maxSafetyDuration)). Press ⌘⌥⌃L for 3 seconds to cancel.")
+        } else {
+            print("Locked for \(formatDuration(effectiveDuration))! Press ⌘⌥⌃L for 3 seconds to cancel.")
         }
     }
+
+    // Pre-lock delay (non-blocking)
+    if opts.delay > 0 {
+        let durationText = opts.duration == nil
+            ? "until cancelled (safety: \(formatDuration(maxSafetyDuration)))"
+            : formatDuration(effectiveDuration)
+        print("CleanLock will activate in \(opts.delay) seconds for \(durationText)...")
+
+        var remaining = opts.delay
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            print("  \(remaining)...")
+            remaining -= 1
+            if remaining < 0 {
+                timer.invalidate()
+                startLock()
+            }
+        }
+    } else {
+        startLock()
+    }
+
+    // Signal handling via DispatchSource (replaces polling timer)
+    let sigTermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+    sigTermSource.setEventHandler { session.cancel() }
+    sigTermSource.resume()
+
+    let sigIntSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+    sigIntSource.setEventHandler { session.cancel() }
+    sigIntSource.resume()
 
     // Run the main run loop
     let app = NSApplication.shared
