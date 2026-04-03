@@ -9,6 +9,8 @@ public struct SessionConfig {
     public var silent: Bool
     public var showOverlay: Bool
     public var overlayColor: (r: Double, g: Double, b: Double)?
+    /// Optional title displayed on the overlay (e.g. "Time to Relax 🌊").
+    public var overlayTitle: String?
 
     public init(
         duration: Int,
@@ -16,7 +18,8 @@ public struct SessionConfig {
         dim: Bool = false,
         silent: Bool = false,
         showOverlay: Bool = true,
-        overlayColor: (r: Double, g: Double, b: Double)? = nil
+        overlayColor: (r: Double, g: Double, b: Double)? = nil,
+        overlayTitle: String? = nil
     ) {
         self.duration = duration
         self.keyboardOnly = keyboardOnly
@@ -24,6 +27,7 @@ public struct SessionConfig {
         self.silent = silent
         self.showOverlay = showOverlay
         self.overlayColor = overlayColor
+        self.overlayTitle = overlayTitle
     }
 }
 
@@ -61,7 +65,8 @@ public final class TapLockSession {
         if config.showOverlay {
             overlayController = CountdownWindowController(
                 duration: config.duration,
-                backgroundColor: config.overlayColor
+                backgroundColor: config.overlayColor,
+                title: config.overlayTitle
             )
             overlayController?.showOverlay()
         }

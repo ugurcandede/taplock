@@ -12,6 +12,8 @@ struct CLIOptions {
     var colorInput: String? = nil
     var silent = false
     var dim = false
+    var relaxMode = false
+    var relaxInterval: Int? = nil
 }
 
 func parseArguments() -> CLIOptions {
@@ -37,6 +39,15 @@ func parseArguments() -> CLIOptions {
             opts.silent = true
         case "--dim":
             opts.dim = true
+        case "--relax":
+            opts.relaxMode = true
+        case "--interval":
+            i += 1
+            guard i < args.count, let d = parseDuration(args[i]), d > 0 else {
+                fputs("Error: --interval requires a positive duration (e.g. 25m, 1500).\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            opts.relaxInterval = d
         case "--delay":
             i += 1
             guard i < args.count, let d = Int(args[i]), d > 0 else {
@@ -82,7 +93,6 @@ func parseArguments() -> CLIOptions {
 
 func main() {
     let opts = parseArguments()
-    let effectiveDuration = opts.duration ?? maxSafetyDuration
 
     // Validate color early
     var overlayColor: (r: Double, g: Double, b: Double)? = nil
@@ -110,7 +120,23 @@ func main() {
     // Write PID file
     writePIDFile()
 
-    // Session setup
+    if opts.relaxMode {
+        startRelaxingMode(opts: opts, overlayColor: overlayColor)
+    } else {
+        startLockMode(opts: opts, overlayColor: overlayColor)
+    }
+
+    // Run the main run loop
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    app.run()
+}
+
+// MARK: - Lock Mode
+
+func startLockMode(opts: CLIOptions, overlayColor: (r: Double, g: Double, b: Double)?) {
+    let effectiveDuration = opts.duration ?? maxSafetyDuration
+
     let config = SessionConfig(
         duration: effectiveDuration,
         keyboardOnly: opts.keyboardOnly,
@@ -129,7 +155,6 @@ func main() {
         }
     }
 
-    // Start function (called immediately or after delay)
     let startLock = {
         do {
             try session.start()
@@ -174,11 +199,52 @@ func main() {
     let sigIntSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
     sigIntSource.setEventHandler { session.cancel() }
     sigIntSource.resume()
+}
 
-    // Run the main run loop
-    let app = NSApplication.shared
-    app.setActivationPolicy(.accessory)
-    app.run()
+// MARK: - Relaxing Session Mode
+
+func startRelaxingMode(opts: CLIOptions, overlayColor: (r: Double, g: Double, b: Double)?) {
+    let effectiveInterval = opts.relaxInterval ?? defaultRelaxInterval
+    let effectiveDuration = opts.duration ?? defaultRelaxDuration
+
+    let relaxConfig = RelaxingSessionConfig(
+        interval: effectiveInterval,
+        duration: effectiveDuration,
+        overlayColor: overlayColor,
+        dim: opts.dim,
+        silent: opts.silent,
+        keyboardOnly: opts.keyboardOnly
+    )
+
+    let relaxSession = RelaxingSession(config: relaxConfig)
+
+    relaxSession.onRelaxStart = { count in
+        print("Relaxing session #\(count) started for \(formatDuration(effectiveDuration)). Press ⌘⌥⌃L for 3 seconds to cancel.")
+    }
+
+    relaxSession.onRelaxEnd = { count in
+        print("Relaxing session #\(count) ended. Next break in \(formatDuration(effectiveInterval)).")
+    }
+
+    relaxSession.onEnd = {
+        removePIDFile()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            exit(ExitCode.success.rawValue)
+        }
+    }
+
+    print("Relaxing mode started: \(formatDuration(effectiveDuration)) break every \(formatDuration(effectiveInterval)). Use --cancel to stop.")
+
+    relaxSession.start()
+
+    // Signal handling via DispatchSource
+    let sigTermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+    sigTermSource.setEventHandler { relaxSession.cancel() }
+    sigTermSource.resume()
+
+    let sigIntSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+    sigIntSource.setEventHandler { relaxSession.cancel() }
+    sigIntSource.resume()
 }
 
 main()

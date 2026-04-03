@@ -5,6 +5,8 @@ import Foundation
 
 let version = "0.1.0"
 let maxSafetyDuration = 300 // 5 minutes
+let defaultRelaxInterval = 25 * 60  // 25 minutes
+let defaultRelaxDuration = 5 * 60   // 5 minutes
 
 let pidFilePath: String = {
     let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
@@ -93,6 +95,18 @@ func printHelp() -> Never {
       --dim             Reduce screen brightness to minimum during lock
       -h, --help        Show this help
       -v, --version     Show version
+
+    RELAXING SESSION MODE:
+      --relax           Enable repeating relaxing session mode (Pomodoro-style)
+      --interval <dur>  Work interval between breaks. Default: 25m. Examples: 20m, 30m, 45m
+                        Duration argument sets the break length. Default: 5m.
+                        Custom --color sets the relaxing overlay color (default: calming teal).
+
+      Examples:
+        taplock --relax                     25-minute work, 5-minute relaxing break, repeat
+        taplock --relax 10m                 25-minute work, 10-minute break, repeat
+        taplock --relax --interval 50m 10m  50-minute work, 10-minute break, repeat
+        taplock --relax --color 2d6a4f      Custom calming green overlay color
     """)
     exit(ExitCode.success.rawValue)
 }

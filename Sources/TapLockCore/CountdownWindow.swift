@@ -6,6 +6,7 @@ struct CountdownView: View {
     @ObservedObject var timer: CountdownTimer
     var backgroundColor: Color
     var textColor: Color
+    var title: String?
 
     var body: some View {
         ZStack {
@@ -14,6 +15,12 @@ struct CountdownView: View {
 
             VStack(spacing: 40) {
                 Spacer()
+
+                if let title = title {
+                    Text(title)
+                        .font(.system(size: 36, weight: .medium, design: .rounded))
+                        .foregroundColor(textColor.opacity(0.85))
+                }
 
                 Text(timer.currentTime)
                     .font(.system(size: 28, weight: .regular, design: .monospaced))
@@ -86,12 +93,15 @@ final class CountdownWindowController {
     private let timer: CountdownTimer
     private let backgroundColor: Color
     private let textColor: Color
+    private let title: String?
 
     /// - Parameters:
     ///   - duration: Lock duration in seconds.
     ///   - backgroundColor: Custom RGB tuple, or nil for default (black 0.85 opacity).
-    init(duration: Int, backgroundColor: (r: Double, g: Double, b: Double)? = nil) {
+    ///   - title: Optional title displayed above the countdown timer.
+    init(duration: Int, backgroundColor: (r: Double, g: Double, b: Double)? = nil, title: String? = nil) {
         self.timer = CountdownTimer(duration: duration)
+        self.title = title
         if let bg = backgroundColor {
             self.backgroundColor = Color(red: bg.r, green: bg.g, blue: bg.b)
             let luminance = 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b
@@ -122,7 +132,8 @@ final class CountdownWindowController {
             rootView: CountdownView(
                 timer: timer,
                 backgroundColor: backgroundColor,
-                textColor: textColor
+                textColor: textColor,
+                title: title
             )
         )
         hostingView.frame = screen.frame
