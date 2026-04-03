@@ -99,6 +99,10 @@ Press **⌘⌥⌃L** (Cmd + Option + Ctrl + L) and hold for **3 seconds** to can
 
 macOS 13.0 (Ventura) or later · Apple Silicon or Intel · Accessibility permission
 
+## Related
+
+[TapLock App](https://github.com/ugurcandede/taplock-app) · [Homebrew Tap](https://github.com/ugurcandede/homebrew-taplock)
+
 ## License
 
 Source Available — free to use, not to modify or redistribute. See [LICENSE](LICENSE).
