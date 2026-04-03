@@ -27,5 +27,12 @@ let package = Package(
                 .swiftLanguageMode(.v5)
             ]
         ),
+        .testTarget(
+            name: "CleanLockTests",
+            dependencies: ["CleanLockCore"],
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
+            ]
+        ),
     ]
 )
