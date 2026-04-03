@@ -48,11 +48,9 @@ final class CountdownTimer: ObservableObject {
 
     init(duration: Int) {
         self.remainingSeconds = Double(duration)
-        self.currentTime = {
-            let f = DateFormatter()
-            f.dateFormat = "HH:mm"
-            return f.string(from: Date())
-        }()
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        self.currentTime = f.string(from: Date())
     }
 
     var formattedTime: String {

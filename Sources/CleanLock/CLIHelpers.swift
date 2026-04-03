@@ -3,8 +3,14 @@ import Foundation
 // MARK: - Constants
 
 let version = "0.1.0"
-let pidFilePath = "/tmp/cleanlock.pid"
 let maxSafetyDuration = 300 // 5 minutes
+
+let pidFilePath: String = {
+    let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+    let dir = cacheDir.appendingPathComponent("cleanlock")
+    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    return dir.appendingPathComponent("cleanlock.pid").path
+}()
 
 // MARK: - Exit Codes
 

@@ -47,7 +47,12 @@ public final class CleanLockSession {
     public func start() throws {
         guard !isActive else { throw CleanLockError.alreadyBlocking }
 
-        try InputBlocker.shared.startBlocking(keyboardOnly: config.keyboardOnly)
+        do {
+            try InputBlocker.shared.startBlocking(keyboardOnly: config.keyboardOnly)
+        } catch {
+            end()
+            throw error
+        }
         isActive = true
 
         if config.dim { BrightnessControl.shared.dim() }
