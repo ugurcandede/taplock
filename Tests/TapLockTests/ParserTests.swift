@@ -1,5 +1,5 @@
 import Testing
-@testable import CleanLockCore
+@testable import TapLockCore
 
 @Suite("Duration Parser")
 struct DurationParserTests {

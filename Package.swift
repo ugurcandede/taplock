@@ -3,33 +3,33 @@
 import PackageDescription
 
 let package = Package(
-    name: "cleanlock",
+    name: "taplock",
     platforms: [
         .macOS(.v13)
     ],
     products: [
-        .library(name: "CleanLockCore", targets: ["CleanLockCore"]),
-        .executable(name: "cleanlock", targets: ["CleanLock"]),
+        .library(name: "TapLockCore", targets: ["TapLockCore"]),
+        .executable(name: "taplock", targets: ["TapLock"]),
     ],
     targets: [
         .target(
-            name: "CleanLockCore",
-            path: "Sources/CleanLockCore",
+            name: "TapLockCore",
+            path: "Sources/TapLockCore",
             swiftSettings: [
                 .swiftLanguageMode(.v5)
             ]
         ),
         .executableTarget(
-            name: "CleanLock",
-            dependencies: ["CleanLockCore"],
-            path: "Sources/CleanLock",
+            name: "TapLock",
+            dependencies: ["TapLockCore"],
+            path: "Sources/TapLock",
             swiftSettings: [
                 .swiftLanguageMode(.v5)
             ]
         ),
         .testTarget(
-            name: "CleanLockTests",
-            dependencies: ["CleanLockCore"],
+            name: "TapLockTests",
+            dependencies: ["TapLockCore"],
             swiftSettings: [
                 .swiftLanguageMode(.v5)
             ]

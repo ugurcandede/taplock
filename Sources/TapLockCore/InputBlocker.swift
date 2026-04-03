@@ -2,7 +2,7 @@ import Cocoa
 import Foundation
 
 /// Error types for input blocking operations.
-public enum CleanLockError: Error, CustomStringConvertible {
+public enum TapLockError: Error, CustomStringConvertible {
     case accessibilityDenied
     case eventTapCreationFailed
     case alreadyBlocking
@@ -17,7 +17,7 @@ public enum CleanLockError: Error, CustomStringConvertible {
         case .alreadyBlocking:
             return "Input blocking is already active."
         case .alreadyRunning:
-            return "Another CleanLock session is already running."
+            return "Another TapLock session is already running."
         }
     }
 }
@@ -52,10 +52,10 @@ public final class InputBlocker {
 
     /// Start blocking input.
     /// - Parameter keyboardOnly: If true, only keyboard events are blocked.
-    /// - Throws: `CleanLockError` if already blocking, no accessibility, or tap creation fails.
+    /// - Throws: `TapLockError` if already blocking, no accessibility, or tap creation fails.
     public func startBlocking(keyboardOnly: Bool = false) throws {
-        guard !isBlocking else { throw CleanLockError.alreadyBlocking }
-        guard InputBlocker.checkAccessibility() else { throw CleanLockError.accessibilityDenied }
+        guard !isBlocking else { throw TapLockError.alreadyBlocking }
+        guard InputBlocker.checkAccessibility() else { throw TapLockError.accessibilityDenied }
 
         self.keyboardOnly = keyboardOnly
         self.emergencyCancelStart = nil
@@ -91,7 +91,7 @@ public final class InputBlocker {
             callback: InputBlocker.eventTapCallback,
             userInfo: userInfo
         ) else {
-            throw CleanLockError.eventTapCreationFailed
+            throw TapLockError.eventTapCreationFailed
         }
 
         self.eventTap = tap
@@ -140,7 +140,7 @@ public final class InputBlocker {
     public static func waitForAccessibility(timeout: TimeInterval = 30) -> Bool {
         if checkAccessibility() { return true }
 
-        print("CleanLock needs Accessibility permission to block input.")
+        print("TapLock needs Accessibility permission to block input.")
         print("Opening System Settings > Privacy & Security > Accessibility...")
         print("Please grant permission, then return here.\n")
 

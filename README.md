@@ -1,4 +1,4 @@
-# CleanLock
+# TapLock
 
 Temporarily disable keyboard and trackpad input while cleaning your Mac. No root required.
 
@@ -7,9 +7,9 @@ Temporarily disable keyboard and trackpad input while cleaning your Mac. No root
 ### Homebrew
 
 ```bash
-brew tap ugurcandede/cleanlock
-brew install cleanlock                # CLI
-brew install --cask cleanlock-app     # Menu bar app
+brew tap ugurcandede/taplock
+brew install taplock                # CLI
+brew install --cask taplock-app     # Menu bar app
 ```
 
 ### Build from source
@@ -17,19 +17,19 @@ brew install --cask cleanlock-app     # Menu bar app
 Requires Swift 5.9+ (Xcode Command Line Tools is enough, no Xcode needed).
 
 ```bash
-git clone https://github.com/ugurcandede/cleanlock.git
-cd cleanlock
+git clone https://github.com/ugurcandede/taplock.git
+cd taplock
 swift build -c release
-# Binary is at .build/release/cleanlock
+# Binary is at .build/release/taplock
 ```
 
 ## Usage
 
 ```bash
-cleanlock                          # Lock until cancelled (safety auto-unlock: 5m)
-cleanlock 30                       # Lock for 30 seconds
-cleanlock 2m                       # Lock for 2 minutes
-cleanlock 1m30s                    # Lock for 1 minute 30 seconds
+taplock                          # Lock until cancelled (safety auto-unlock: 5m)
+taplock 30                       # Lock for 30 seconds
+taplock 2m                       # Lock for 2 minutes
+taplock 1m30s                    # Lock for 1 minute 30 seconds
 ```
 
 ### Options
@@ -50,16 +50,16 @@ cleanlock 1m30s                    # Lock for 1 minute 30 seconds
 
 ```bash
 # Clean your screen with a pure black background
-cleanlock --color 000000
+taplock --color 000000
 
 # Full cleaning mode: black screen, dimmed brightness, no sound
-cleanlock --color 000000 --dim --silent
+taplock --color 000000 --dim --silent
 
 # Lock keyboard only for 2 minutes, with 5 second delay to switch windows
-cleanlock 2m --keyboard-only --delay 5
+taplock 2m --keyboard-only --delay 5
 
 # Cancel an active session from another terminal
-cleanlock --cancel
+taplock --cancel
 ```
 
 ### Emergency Cancel
@@ -68,7 +68,7 @@ Press **⌘⌥⌃L** (Cmd + Option + Ctrl + L) and hold for **3 seconds** to can
 
 ## Permissions
 
-CleanLock requires **Accessibility** permission to block input. On first run, it will guide you through granting this in System Settings > Privacy & Security > Accessibility.
+TapLock requires **Accessibility** permission to block input. On first run, it will guide you through granting this in System Settings > Privacy & Security > Accessibility.
 
 ## How it works
 
@@ -77,7 +77,7 @@ CleanLock requires **Accessibility** permission to block input. On first run, it
 - **Full-screen overlay** — semi-transparent countdown timer with clock (customizable color)
 - **Sound feedback** — system sounds on lock start/end
 - **Brightness control** — dims screen to minimum during lock, restores on exit
-- **IPC** — PID file at `~/Library/Caches/cleanlock/` for cross-terminal cancel via `--cancel`
+- **IPC** — PID file at `~/Library/Caches/taplock/` for cross-terminal cancel via `--cancel`
 - **Safety** — DispatchSource signal handlers always restore input and brightness before exit
 
 ## Requirements

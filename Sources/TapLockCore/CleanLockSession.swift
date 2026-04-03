@@ -1,7 +1,7 @@
 import Cocoa
 import Foundation
 
-/// Configuration for a CleanLock session.
+/// Configuration for a TapLock session.
 public struct SessionConfig {
     public var duration: Int
     public var keyboardOnly: Bool
@@ -29,7 +29,7 @@ public struct SessionConfig {
 
 /// Orchestrates a complete lock session: input blocking, overlay, brightness, sounds.
 /// Reusable by both CLI and future UI app.
-public final class CleanLockSession {
+public final class TapLockSession {
     private let config: SessionConfig
     private var overlayController: CountdownWindowController?
     private var emergencyObserver: NSObjectProtocol?
@@ -43,9 +43,9 @@ public final class CleanLockSession {
     }
 
     /// Start the lock session. Call from main thread.
-    /// - Throws: `CleanLockError` on failure.
+    /// - Throws: `TapLockError` on failure.
     public func start() throws {
-        guard !isActive else { throw CleanLockError.alreadyBlocking }
+        guard !isActive else { throw TapLockError.alreadyBlocking }
 
         do {
             try InputBlocker.shared.startBlocking(keyboardOnly: config.keyboardOnly)

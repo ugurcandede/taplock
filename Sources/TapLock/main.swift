@@ -1,4 +1,4 @@
-import CleanLockCore
+import TapLockCore
 import Cocoa
 import Foundation
 
@@ -95,7 +95,7 @@ func main() {
 
     // Check for existing instance
     if checkExistingInstance() {
-        fputs("Error: Another CleanLock session is already running. Use --cancel to stop it.\n", stderr)
+        fputs("Error: Another TapLock session is already running. Use --cancel to stop it.\n", stderr)
         exit(ExitCode.generalError.rawValue)
     }
 
@@ -120,7 +120,7 @@ func main() {
         overlayColor: overlayColor
     )
 
-    let session = CleanLockSession(config: config)
+    let session = TapLockSession(config: config)
 
     session.onEnd = {
         removePIDFile()
@@ -151,7 +151,7 @@ func main() {
         let durationText = opts.duration == nil
             ? "until cancelled (safety: \(formatDuration(maxSafetyDuration)))"
             : formatDuration(effectiveDuration)
-        print("CleanLock will activate in \(opts.delay) seconds for \(durationText)...")
+        print("TapLock will activate in \(opts.delay) seconds for \(durationText)...")
 
         var remaining = opts.delay
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in

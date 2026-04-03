@@ -1,4 +1,4 @@
-import CleanLockCore
+import TapLockCore
 import Foundation
 
 // MARK: - Constants
@@ -8,9 +8,9 @@ let maxSafetyDuration = 300 // 5 minutes
 
 let pidFilePath: String = {
     let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-    let dir = cacheDir.appendingPathComponent("cleanlock")
+    let dir = cacheDir.appendingPathComponent("taplock")
     try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-    return dir.appendingPathComponent("cleanlock.pid").path
+    return dir.appendingPathComponent("taplock.pid").path
 }()
 
 // MARK: - Exit Codes
@@ -24,7 +24,7 @@ enum ExitCode: Int32 {
 
 // MARK: - PID File IPC
 
-/// Check if another CleanLock instance is running.
+/// Check if another TapLock instance is running.
 func checkExistingInstance() -> Bool {
     guard let pid = readPIDFile() else { return false }
     return kill(pid, 0) == 0
@@ -56,18 +56,18 @@ func readPIDFile() -> pid_t? {
 
 func cancelActiveSession() -> Never {
     guard let pid = readPIDFile() else {
-        fputs("Error: No active CleanLock session found.\n", stderr)
+        fputs("Error: No active TapLock session found.\n", stderr)
         exit(ExitCode.noActiveSession.rawValue)
     }
 
     if kill(pid, 0) != 0 {
         removePIDFile()
-        fputs("Error: No active CleanLock session found (stale PID file removed).\n", stderr)
+        fputs("Error: No active TapLock session found (stale PID file removed).\n", stderr)
         exit(ExitCode.noActiveSession.rawValue)
     }
 
     kill(pid, SIGTERM)
-    print("Cancelled CleanLock session (PID: \(pid)).")
+    print("Cancelled TapLock session (PID: \(pid)).")
     exit(ExitCode.success.rawValue)
 }
 
@@ -75,7 +75,7 @@ func cancelActiveSession() -> Never {
 
 func printHelp() -> Never {
     print("""
-    USAGE: cleanlock [duration] [options]
+    USAGE: taplock [duration] [options]
 
     Temporarily disable keyboard and trackpad input while cleaning your Mac.
 
@@ -98,6 +98,6 @@ func printHelp() -> Never {
 }
 
 func printVersion() -> Never {
-    print("cleanlock \(version)")
+    print("taplock \(version)")
     exit(ExitCode.success.rawValue)
 }
