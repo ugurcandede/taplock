@@ -85,6 +85,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Update Homebrew formula
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          git clone https://x-access-token:${GH_TOKEN}@github.com/ugurcandede/homebrew-taplock.git /tmp/homebrew-taplock
+          cd /tmp/homebrew-taplock
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i '' "s|url \".*\"|url \"https://github.com/ugurcandede/taplock/releases/download/v${VERSION}/taplock-macos.zip\"|" Formula/taplock.rb
+          sed -i '' "s|sha256 \".*\"|sha256 \"${SHA256}\"|" Formula/taplock.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/taplock.rb
+          git commit -m "Update taplock formula to v${VERSION}"
+          git push
+
       - name: Notify taplock-app to update submodule
         continue-on-error: true
         run: |
