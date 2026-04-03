@@ -8,7 +8,8 @@ Temporarily disable keyboard and trackpad input while cleaning your Mac. No root
 
 ```bash
 brew tap ugurcandede/cleanlock
-brew install cleanlock
+brew install cleanlock                # CLI
+brew install --cask cleanlock-app     # Menu bar app
 ```
 
 ### Build from source
