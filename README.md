@@ -87,4 +87,4 @@ TapLock requires **Accessibility** permission to block input. On first run, it w
 
 ## License
 
-MIT
+Source Available — free to use, not to modify or redistribute. See [LICENSE](LICENSE).

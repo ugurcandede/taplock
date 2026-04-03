@@ -1,9 +1,9 @@
-class Cleanlock < Formula
-  desc "Temporarily disable keyboard and trackpad while cleaning your Mac"
+class Taplock < Formula
+  desc "Temporarily disable keyboard and trackpad input on your Mac"
   homepage "https://github.com/ugurcandede/taplock"
   url "https://github.com/ugurcandede/taplock/releases/download/vVERSION/taplock-macos.zip"
   sha256 "SHA256_PLACEHOLDER"
-  license "MIT"
+  license :cannot_represent
 
   def install
     bin.install "taplock-universal" => "taplock"
