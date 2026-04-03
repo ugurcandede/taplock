@@ -1,7 +1,14 @@
 <div align="center">
   <img src="assets/icon.png" alt="TapLock" width="80">
   <h1>TapLock</h1>
-  <p>Temporarily disable keyboard and trackpad input on your Mac. No root required.</p>
+  <p>Temporarily disable keyboard and trackpad input on your Mac.<br><strong>No root required</strong></p>
+  <br>
+  <a href="https://github.com/ugurcandede/taplock/releases/latest"><img src="https://img.shields.io/github/v/release/ugurcandede/taplock?label=version&style=flat-square" alt="Version"></a>
+  <a href="https://github.com/ugurcandede/taplock/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/ugurcandede/taplock/build.yml?style=flat-square" alt="Build"></a>
+  <br>
+  <img src="https://img.shields.io/badge/macOS-13.0%2B-000?style=flat-square&logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/Swift-6.0-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Source%20Available-lightgrey?style=flat-square" alt="License"></a>
 </div>
 
 ---
