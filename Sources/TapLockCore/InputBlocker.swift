@@ -67,18 +67,16 @@ public final class InputBlocker {
 
         if !keyboardOnly {
             eventMask |= (1 << CGEventType.mouseMoved.rawValue)
-                | (1 << CGEventType.leftMouseDown.rawValue)
-                | (1 << CGEventType.leftMouseUp.rawValue)
-                | (1 << CGEventType.rightMouseDown.rawValue)
-                | (1 << CGEventType.rightMouseUp.rawValue)
-                | (1 << CGEventType.scrollWheel.rawValue)
-                | (1 << CGEventType.leftMouseDragged.rawValue)
-                | (1 << CGEventType.rightMouseDragged.rawValue)
-                | (1 << 29) // NSEventTypeGesture
-                | (1 << 30) // NSEventTypeBeginGesture
-                | (1 << 31) // NSEventTypeEndGesture
-
-            // Events are blocked by the tap — no need to hide cursor
+            eventMask |= (1 << CGEventType.leftMouseDown.rawValue)
+            eventMask |= (1 << CGEventType.leftMouseUp.rawValue)
+            eventMask |= (1 << CGEventType.rightMouseDown.rawValue)
+            eventMask |= (1 << CGEventType.rightMouseUp.rawValue)
+            eventMask |= (1 << CGEventType.scrollWheel.rawValue)
+            eventMask |= (1 << CGEventType.leftMouseDragged.rawValue)
+            eventMask |= (1 << CGEventType.rightMouseDragged.rawValue)
+            eventMask |= (1 << 29) // NSEventTypeGesture
+            eventMask |= (1 << 30) // NSEventTypeBeginGesture
+            eventMask |= (1 << 31) // NSEventTypeEndGesture
         }
 
         let userInfo = Unmanaged.passUnretained(self).toOpaque()
