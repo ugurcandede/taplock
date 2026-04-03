@@ -84,3 +84,12 @@ jobs:
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify cleanlock-app to update submodule
+        continue-on-error: true
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/ugurcandede/cleanlock-app/dispatches \
+            -d '{"event_type":"cleanlock-updated"}'
