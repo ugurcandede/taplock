@@ -40,9 +40,6 @@ public final class InputBlocker {
     /// Tracks when the emergency cancel combo was first detected.
     var emergencyCancelStart: Date?
 
-    /// The screen center point for cursor locking.
-    var cursorLockPoint: CGPoint = .zero
-
     /// The L key's macOS virtual keycode.
     private static let lKeyCode: Int64 = 0x25
 
@@ -81,13 +78,7 @@ public final class InputBlocker {
                 | (1 << 30) // NSEventTypeBeginGesture
                 | (1 << 31) // NSEventTypeEndGesture
 
-            if let screen = NSScreen.main {
-                self.cursorLockPoint = CGPoint(
-                    x: screen.frame.midX,
-                    y: screen.frame.midY
-                )
-            }
-            NSCursor.hide()
+            // Events are blocked by the tap — no need to hide cursor
         }
 
         let userInfo = Unmanaged.passUnretained(self).toOpaque()
@@ -123,9 +114,7 @@ public final class InputBlocker {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
         }
 
-        if !keyboardOnly {
-            NSCursor.unhide()
-        }
+        // No cursor restore needed — we don't hide it
 
         eventTap = nil
         runLoopSource = nil
@@ -187,11 +176,6 @@ public final class InputBlocker {
 
         guard let userInfo = userInfo else { return nil }
         let blocker = Unmanaged<InputBlocker>.fromOpaque(userInfo).takeUnretainedValue()
-
-        // Lock cursor to screen center
-        if type == .mouseMoved || type == .leftMouseDragged || type == .rightMouseDragged {
-            CGWarpMouseCursorPosition(blocker.cursorLockPoint)
-        }
 
         // Emergency cancel detection: ⌘⌥⌃L held for 3 seconds
         if type == .keyDown || type == .flagsChanged {
