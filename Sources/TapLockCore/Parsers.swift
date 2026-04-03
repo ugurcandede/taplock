@@ -14,6 +14,14 @@ public func parseDuration(_ input: String) -> Int? {
     var total = 0
     var matched = false
 
+    if let range = trimmed.range(of: #"(\d+)h"#, options: .regularExpression) {
+        let digits = trimmed[range].dropLast()
+        if let hours = Int(digits) {
+            total += hours * 3600
+            matched = true
+        }
+    }
+
     if let range = trimmed.range(of: #"(\d+)m"#, options: .regularExpression) {
         let digits = trimmed[range].dropLast()
         if let mins = Int(digits) {
@@ -35,12 +43,18 @@ public func parseDuration(_ input: String) -> Int? {
 
 /// Format seconds into a human-readable string.
 public func formatDuration(_ seconds: Int) -> String {
+    if seconds >= 3600 {
+        let hours = seconds / 3600
+        let mins = (seconds % 3600) / 60
+        let secs = seconds % 60
+        if mins == 0 && secs == 0 { return "\(hours)h" }
+        if secs == 0 { return "\(hours)h\(mins)m" }
+        return "\(hours)h\(mins)m\(secs)s"
+    }
     if seconds >= 60 {
         let mins = seconds / 60
         let secs = seconds % 60
-        if secs == 0 {
-            return "\(mins)m"
-        }
+        if secs == 0 { return "\(mins)m" }
         return "\(mins)m\(secs)s"
     }
     return "\(seconds)s"

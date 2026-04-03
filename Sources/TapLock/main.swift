@@ -78,9 +78,215 @@ func parseArguments() -> CLIOptions {
     return opts
 }
 
-// MARK: - Main
+// MARK: - Relax Argument Parsing
 
-func main() {
+struct RelaxOptions {
+    var every: Int? = nil
+    var breakDuration: Int? = nil
+    var theme: String? = nil
+    var colorInput: String? = nil
+    var opacity: Double? = nil
+    var silent = false
+}
+
+func parseRelaxArguments(_ args: [String]) -> RelaxOptions {
+    var opts = RelaxOptions()
+    var i = 0
+
+    while i < args.count {
+        let arg = args[i]
+        switch arg {
+        case "--help", "-h":
+            printHelp()
+        case "--cancel":
+            cancelActiveRelaxSession()
+        case "--config":
+            showRelaxConfig()
+        case "--reset":
+            resetRelaxConfig()
+        case "--silent":
+            opts.silent = true
+        case "--every":
+            i += 1
+            guard i < args.count, let d = parseDuration(args[i]) else {
+                fputs("Error: --every requires a valid duration (e.g. 25m, 45m).\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            opts.every = d
+        case "--break":
+            i += 1
+            guard i < args.count, let d = parseDuration(args[i]) else {
+                fputs("Error: --break requires a valid duration (e.g. 5m, 10m).\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            opts.breakDuration = d
+        case "--theme":
+            i += 1
+            guard i < args.count else {
+                fputs("Error: --theme requires a value (breathing, minimal).\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            opts.theme = args[i]
+        case "--color":
+            i += 1
+            guard i < args.count else {
+                fputs("Error: --color requires a value (e.g. green, blue, FF0000).\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            opts.colorInput = args[i]
+        case "--opacity":
+            i += 1
+            guard i < args.count, let val = Double(args[i]), val > 0 && val <= 1.0 else {
+                fputs("Error: --opacity requires a value between 0.1 and 1.0.\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            opts.opacity = val
+        default:
+            fputs("Error: Unknown option '\(arg)'. Use --help for usage.\n", stderr)
+            exit(ExitCode.generalError.rawValue)
+        }
+        i += 1
+    }
+
+    return opts
+}
+
+func showRelaxConfig() -> Never {
+    guard let config = ConfigStore.loadRelaxConfig() else {
+        print("No saved relaxing session configuration.")
+        exit(ExitCode.success.rawValue)
+    }
+    print("Saved relaxing session configuration:")
+    print("  Interval:  \(formatDuration(config.interval))")
+    print("  Break:     \(formatDuration(config.breakDuration))")
+    print("  Theme:     \(config.theme.rawValue)")
+    print("  Color:     \(config.color)")
+    print("  Opacity:   \(config.opacity)")
+    print("  Silent:    \(config.silent)")
+    exit(ExitCode.success.rawValue)
+}
+
+func resetRelaxConfig() -> Never {
+    do {
+        try ConfigStore.removeRelaxConfig()
+        print("Relaxing session configuration removed.")
+    } catch {
+        fputs("Error: Could not remove config: \(error.localizedDescription)\n", stderr)
+    }
+    exit(ExitCode.success.rawValue)
+}
+
+// MARK: - Run Relax Mode
+
+func runRelaxMode(_ args: [String]) {
+    let opts = parseRelaxArguments(args)
+
+    // Validate: --every and --break must be provided together
+    if (opts.every != nil) != (opts.breakDuration != nil) {
+        fputs("Error: --every and --break must be provided together.\n", stderr)
+        fputs("Example: taplock relax --every 25m --break 5m\n", stderr)
+        exit(ExitCode.generalError.rawValue)
+    }
+
+    // Load saved config or build from arguments
+    var config: RelaxingSessionConfig
+    if let every = opts.every, let breakDur = opts.breakDuration {
+        // Validate theme
+        var theme: RelaxTheme = .breathing
+        if let themeInput = opts.theme {
+            guard let parsed = RelaxTheme(rawValue: themeInput) else {
+                fputs("Error: Unknown theme '\(themeInput)'. Available: breathing, minimal, mini\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            theme = parsed
+        }
+
+        // Validate color
+        let colorStr = opts.colorInput ?? "green"
+        if parseColor(colorStr) == nil {
+            fputs("Warning: Invalid color '\(colorStr)'. Using default green.\n", stderr)
+        }
+
+        config = RelaxingSessionConfig(
+            interval: every,
+            breakDuration: breakDur,
+            theme: theme,
+            color: colorStr,
+            opacity: opts.opacity ?? 0.85,
+            silent: opts.silent
+        )
+
+        // Auto-save config
+        do {
+            try ConfigStore.saveRelaxConfig(config)
+        } catch {
+            fputs("Warning: Could not save config: \(error.localizedDescription)\n", stderr)
+        }
+    } else if let saved = ConfigStore.loadRelaxConfig() {
+        config = saved
+        // Allow overriding individual options from saved config
+        if let themeInput = opts.theme {
+            if let parsed = RelaxTheme(rawValue: themeInput) {
+                config.theme = parsed
+            }
+        }
+        if let colorInput = opts.colorInput {
+            config.color = colorInput
+        }
+        if let opacity = opts.opacity {
+            config.opacity = opacity
+        }
+        if opts.silent {
+            config.silent = true
+        }
+    } else {
+        fputs("Error: No saved config. Provide --every and --break on first use.\n", stderr)
+        fputs("Example: taplock relax --every 25m --break 5m\n", stderr)
+        exit(ExitCode.generalError.rawValue)
+    }
+
+    // Validate interval > break duration
+    if config.interval <= config.breakDuration {
+        fputs("Error: --every must be longer than --break.\n", stderr)
+        exit(ExitCode.generalError.rawValue)
+    }
+
+    // Check for existing relax instance
+    if checkExistingRelaxInstance() {
+        fputs("Error: Another relaxing session is already running. Use 'taplock relax --cancel' to stop it.\n", stderr)
+        exit(ExitCode.generalError.rawValue)
+    }
+
+    writeRelaxPIDFile()
+
+    let session = RelaxingSession(config: config)
+
+    session.onEnd = {
+        removeRelaxPIDFile()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            exit(ExitCode.success.rawValue)
+        }
+    }
+
+    session.start()
+
+    // Signal handling
+    let sigTermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+    sigTermSource.setEventHandler { session.cancel() }
+    sigTermSource.resume()
+
+    let sigIntSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+    sigIntSource.setEventHandler { session.cancel() }
+    sigIntSource.resume()
+
+    let app = NSApplication.shared
+    app.setActivationPolicy(.accessory)
+    app.run()
+}
+
+// MARK: - Run Lock Mode
+
+func runLockMode() {
     let opts = parseArguments()
     let effectiveDuration = opts.duration ?? maxSafetyDuration
 
@@ -179,6 +385,17 @@ func main() {
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
     app.run()
+}
+
+// MARK: - Main
+
+func main() {
+    let args = Array(CommandLine.arguments.dropFirst())
+    if args.first == "relax" {
+        runRelaxMode(Array(args.dropFirst()))
+    } else {
+        runLockMode()
+    }
 }
 
 main()
