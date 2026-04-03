@@ -4,7 +4,7 @@ Temporarily disable keyboard and trackpad input while cleaning your Mac. No root
 
 ## Install
 
-### Homebrew (coming soon)
+### Homebrew
 
 ```bash
 brew tap ugurcandede/cleanlock
@@ -38,7 +38,7 @@ cleanlock 1m30s                    # Lock for 1 minute 30 seconds
 --keyboard-only     Block keyboard only, not trackpad
 --no-overlay        Skip the full-screen overlay UI
 --delay <seconds>   Wait before activating lock
---color <hex>       Overlay background color (e.g. 000000 for pure black)
+--color <value>     Overlay color: name (black, red, blue...) or hex (000, #fff, FF0000)
 --dim               Reduce screen brightness to minimum during lock
 --silent            Disable sound effects
 -h, --help          Show help
@@ -76,8 +76,8 @@ CleanLock requires **Accessibility** permission to block input. On first run, it
 - **Full-screen overlay** — semi-transparent countdown timer with clock (customizable color)
 - **Sound feedback** — system sounds on lock start/end
 - **Brightness control** — dims screen to minimum during lock, restores on exit
-- **IPC** — PID file at `/tmp/cleanlock.pid` for cross-terminal cancel via `--cancel`
-- **Safety** — SIGTERM/SIGINT handlers always restore input and brightness before exit
+- **IPC** — PID file at `~/Library/Caches/cleanlock/` for cross-terminal cancel via `--cancel`
+- **Safety** — DispatchSource signal handlers always restore input and brightness before exit
 
 ## Requirements
 

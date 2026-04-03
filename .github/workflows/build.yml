@@ -1,0 +1,62 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build arm64
+        run: swift build -c release --arch arm64
+
+      - name: Build x86_64
+        run: swift build -c release --arch x86_64
+
+      - name: Create universal binary
+        run: |
+          lipo -create \
+            .build/arm64-apple-macosx/release/cleanlock \
+            .build/x86_64-apple-macosx/release/cleanlock \
+            -output cleanlock-universal
+
+      - name: Package
+        run: |
+          zip cleanlock-macos.zip cleanlock-universal
+          shasum -a 256 cleanlock-macos.zip > cleanlock-macos.zip.sha256
+          echo "SHA256=$(cat cleanlock-macos.zip.sha256 | awk '{print $1}')" >> $GITHUB_ENV
+
+      - name: Run tests
+        run: swift test
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            cleanlock-macos.zip
+            cleanlock-macos.zip.sha256
+          body: |
+            ## CleanLock ${{ github.ref_name }}
+
+            **SHA256:** `${{ env.SHA256 }}`
+
+            ### Install
+            ```bash
+            brew tap ugurcandede/cleanlock
+            brew install cleanlock
+            ```
+
+            Or download the universal binary below.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Homebrew formula
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i '' "s|vVERSION|v${VERSION}|g" Formula/cleanlock.rb
+          sed -i '' "s|SHA256_PLACEHOLDER|${SHA256}|g" Formula/cleanlock.rb
+          cat Formula/cleanlock.rb
