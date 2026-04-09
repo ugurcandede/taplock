@@ -60,6 +60,13 @@ public func formatDuration(_ seconds: Int) -> String {
     return "\(seconds)s"
 }
 
+// MARK: - Luminance
+
+/// Calculate perceived luminance from RGB components (0.0–1.0).
+public func luminance(r: Double, g: Double, b: Double) -> Double {
+    0.299 * r + 0.587 * g + 0.114 * b
+}
+
 // MARK: - Color Parsing
 
 /// Parse a color name or hex string into RGB components.
