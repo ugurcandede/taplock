@@ -188,8 +188,8 @@ public final class RelaxingWindowController {
         case .breathing, .mini:
             self.textColor = .white
         case .minimal:
-            let luminance = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b
-            self.textColor = luminance > 0.5 ? .black : .white
+            let lum = luminance(r: color.r, g: color.g, b: color.b)
+            self.textColor = lum > 0.5 ? .black : .white
         }
     }
 

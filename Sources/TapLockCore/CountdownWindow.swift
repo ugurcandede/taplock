@@ -94,8 +94,8 @@ final class CountdownWindowController {
         self.timer = CountdownTimer(duration: duration)
         if let bg = backgroundColor {
             self.backgroundColor = Color(red: bg.r, green: bg.g, blue: bg.b).opacity(0.85)
-            let luminance = 0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b
-            self.textColor = luminance > 0.5 ? .black : .white
+            let lum = luminance(r: bg.r, g: bg.g, b: bg.b)
+            self.textColor = lum > 0.5 ? .black : .white
         } else {
             self.backgroundColor = Color.black.opacity(0.85)
             self.textColor = .white
