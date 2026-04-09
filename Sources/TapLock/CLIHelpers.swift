@@ -159,6 +159,7 @@ func printHelp() -> Never {
       --color <value>     Overlay color (default: green)
       --opacity <0.1-1.0> Overlay opacity (default: 0.85)
       --silent            Disable all sounds including pre-notification
+      --no-posture-reminder  Disable posture reminder during session
       --cancel            Cancel active relaxing session
       --config            Show saved configuration
       --reset             Delete saved configuration
