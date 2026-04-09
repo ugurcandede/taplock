@@ -263,24 +263,28 @@ struct ColorParserTests {
 
 @Suite("Luminance")
 struct LuminanceTests {
+    private func isClose(_ a: Double, _ b: Double, eps: Double = 1e-10) -> Bool {
+        abs(a - b) < eps
+    }
+
     @Test func black() {
         #expect(luminance(r: 0, g: 0, b: 0) == 0.0)
     }
 
     @Test func white() {
-        #expect(luminance(r: 1, g: 1, b: 1) == 1.0)
+        #expect(isClose(luminance(r: 1, g: 1, b: 1), 1.0))
     }
 
     @Test func pureRed() {
-        #expect(luminance(r: 1, g: 0, b: 0) == 0.299)
+        #expect(isClose(luminance(r: 1, g: 0, b: 0), 0.299))
     }
 
     @Test func pureGreen() {
-        #expect(luminance(r: 0, g: 1, b: 0) == 0.587)
+        #expect(isClose(luminance(r: 0, g: 1, b: 0), 0.587))
     }
 
     @Test func pureBlue() {
-        #expect(luminance(r: 0, g: 0, b: 1) == 0.114)
+        #expect(isClose(luminance(r: 0, g: 0, b: 1), 0.114))
     }
 
     @Test func yellowIsLight() {
@@ -291,7 +295,7 @@ struct LuminanceTests {
     @Test func midGrayThreshold() {
         let lum = luminance(r: 0.5, g: 0.5, b: 0.5)
         // 0.5 is NOT > 0.5, so text should be white (dark text threshold not met)
-        #expect(lum == 0.5)
+        #expect(isClose(lum, 0.5))
         #expect(!(lum > 0.5))
     }
 }

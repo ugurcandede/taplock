@@ -21,4 +21,12 @@ jobs:
         run: swift --version
 
       - name: Run tests
-        run: swift test
+        run: swift test 2>&1 | tee test-output.txt
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -E '(✔|✘|Test run|Suite)' test-output.txt >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
