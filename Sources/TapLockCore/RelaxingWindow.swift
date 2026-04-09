@@ -162,7 +162,7 @@ struct BreathingBackground: View {
 // MARK: - Window Controller
 
 /// Controls the full-screen relaxing overlay.
-final class RelaxingWindowController {
+public final class RelaxingWindowController {
     private var panel: NSPanel?
     private let timer: CountdownTimer
     private let theme: RelaxTheme
@@ -171,13 +171,13 @@ final class RelaxingWindowController {
     private let textColor: Color
     private var keyMonitor: Any?
 
-    var onSkip: (() -> Void)?
+    public var onSkip: (() -> Void)?
 
     deinit {
         closeOverlay()
     }
 
-    init(duration: Int, theme: RelaxTheme, color: (r: Double, g: Double, b: Double), opacity: Double = 0.85) {
+    public init(duration: Int, theme: RelaxTheme, color: (r: Double, g: Double, b: Double), opacity: Double = 0.85) {
         self.timer = CountdownTimer(duration: duration)
         self.theme = theme
         self.opacity = opacity
@@ -193,7 +193,7 @@ final class RelaxingWindowController {
         }
     }
 
-    func showOverlay() {
+    public func showOverlay() {
         guard let screen = NSScreen.main else { return }
 
         let panelFrame: NSRect
@@ -253,7 +253,7 @@ final class RelaxingWindowController {
         }
     }
 
-    func closeOverlay() {
+    public func closeOverlay() {
         timer.stop()
         if let monitor = keyMonitor {
             NSEvent.removeMonitor(monitor)

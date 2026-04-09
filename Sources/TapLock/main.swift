@@ -87,6 +87,7 @@ struct RelaxOptions {
     var colorInput: String? = nil
     var opacity: Double? = nil
     var silent = false
+    var noPostureReminder = false
 }
 
 func parseRelaxArguments(_ args: [String]) -> RelaxOptions {
@@ -106,6 +107,8 @@ func parseRelaxArguments(_ args: [String]) -> RelaxOptions {
             resetRelaxConfig()
         case "--silent":
             opts.silent = true
+        case "--no-posture-reminder":
+            opts.noPostureReminder = true
         case "--every":
             i += 1
             guard i < args.count, let d = parseDuration(args[i]) else {
@@ -163,6 +166,7 @@ func showRelaxConfig() -> Never {
     print("  Color:     \(config.color)")
     print("  Opacity:   \(config.opacity)")
     print("  Silent:    \(config.silent)")
+    print("  Posture:   \(config.showPostureReminder)")
     exit(ExitCode.success.rawValue)
 }
 
@@ -213,7 +217,8 @@ func runRelaxMode(_ args: [String]) {
             theme: theme,
             color: colorStr,
             opacity: opts.opacity ?? 0.85,
-            silent: opts.silent
+            silent: opts.silent,
+            showPostureReminder: !opts.noPostureReminder
         )
 
         // Auto-save config
@@ -238,6 +243,9 @@ func runRelaxMode(_ args: [String]) {
         }
         if opts.silent {
             config.silent = true
+        }
+        if opts.noPostureReminder {
+            config.showPostureReminder = false
         }
     } else {
         fputs("Error: No saved config. Provide --every and --break on first use.\n", stderr)

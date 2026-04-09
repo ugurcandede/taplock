@@ -16,6 +16,7 @@ public struct RelaxingSessionConfig: Codable {
     public var color: String
     public var opacity: Double
     public var silent: Bool
+    public var showPostureReminder: Bool
 
     public init(
         interval: Int,
@@ -23,7 +24,8 @@ public struct RelaxingSessionConfig: Codable {
         theme: RelaxTheme = .breathing,
         color: String = "green",
         opacity: Double = 0.85,
-        silent: Bool = false
+        silent: Bool = false,
+        showPostureReminder: Bool = true
     ) {
         self.interval = interval
         self.breakDuration = breakDuration
@@ -31,6 +33,7 @@ public struct RelaxingSessionConfig: Codable {
         self.color = color
         self.opacity = opacity
         self.silent = silent
+        self.showPostureReminder = showPostureReminder
     }
 }
 
@@ -44,6 +47,9 @@ public final class RelaxingSession {
     private var intervalTimer: Timer?
     private var breakTimer: Timer?
     private var preNotifyTimer: Timer?
+    private var postureTimer: Timer?
+    private var postureAutoDismissTimer: Timer?
+    private var postureController: PostureWindowController?
     private var windowController: RelaxingWindowController?
     public private(set) var isActive = false
 
@@ -76,6 +82,9 @@ public final class RelaxingSession {
         intervalTimer = nil
         preNotifyTimer?.invalidate()
         preNotifyTimer = nil
+        dismissPostureReminder()
+        postureTimer?.invalidate()
+        postureTimer = nil
         endBreak()
         onEnd?()
     }
@@ -103,10 +112,21 @@ public final class RelaxingSession {
         intervalTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(config.interval), repeats: false) { [weak self] _ in
             self?.startBreak()
         }
+
+        // Posture reminder at interval/2
+        if config.showPostureReminder && config.interval > 10 {
+            let postureDelay = TimeInterval(config.interval) / 2.0
+            postureTimer?.invalidate()
+            postureTimer = Timer.scheduledTimer(withTimeInterval: postureDelay, repeats: false) { [weak self] _ in
+                guard let self, self.isActive else { return }
+                self.showPostureReminder()
+            }
+        }
     }
 
     private func startBreak() {
         guard isActive else { return }
+        dismissPostureReminder()
 
         if !config.silent { playSound("Blow") }
 
@@ -130,6 +150,27 @@ public final class RelaxingSession {
         }
 
         print("Break started (\(formatDuration(config.breakDuration))). Press Esc or click Skip to dismiss.")
+    }
+
+    private func showPostureReminder() {
+        dismissPostureReminder()
+        postureController = PostureWindowController()
+        postureController?.onDismiss = { [weak self] in
+            self?.dismissPostureReminder()
+        }
+        postureController?.showOverlay()
+
+        // Auto-dismiss after 10 seconds
+        postureAutoDismissTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
+            self?.dismissPostureReminder()
+        }
+    }
+
+    private func dismissPostureReminder() {
+        postureAutoDismissTimer?.invalidate()
+        postureAutoDismissTimer = nil
+        postureController?.closeOverlay()
+        postureController = nil
     }
 
     private func endBreak() {
