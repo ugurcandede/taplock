@@ -129,6 +129,16 @@ Press **⌘⌥⌃L** (Cmd + Option + Ctrl + L) and hold for **3 seconds** to can
 
 ---
 
+## Known Limitations
+
+Some system-level keyboard shortcuts **cannot be blocked** by any CGEvent tap. This is a macOS security restriction, not a bug. These include:
+
+- **⌘ Tab** (App Switcher)
+- **⌘ Space** (Spotlight)
+- **⌃ ←/→** (Switch Desktop)
+- **Media keys** (volume, brightness, play/pause)
+- **Power button / Touch ID**
+
 ## Requirements
 
 macOS 13.0 (Ventura) or later · Apple Silicon or Intel · Accessibility permission

@@ -74,6 +74,9 @@ public final class InputBlocker {
             eventMask |= (1 << CGEventType.scrollWheel.rawValue)
             eventMask |= (1 << CGEventType.leftMouseDragged.rawValue)
             eventMask |= (1 << CGEventType.rightMouseDragged.rawValue)
+            eventMask |= (1 << CGEventType.otherMouseDown.rawValue)
+            eventMask |= (1 << CGEventType.otherMouseUp.rawValue)
+            eventMask |= (1 << CGEventType.otherMouseDragged.rawValue)
             eventMask |= (1 << 29) // NSEventTypeGesture
             eventMask |= (1 << 30) // NSEventTypeBeginGesture
             eventMask |= (1 << 31) // NSEventTypeEndGesture
