@@ -36,6 +36,8 @@ public final class TapLockSession {
     private var emergencyObserver: NSObjectProtocol?
     private var chordStartedObserver: NSObjectProtocol?
     private var chordReleasedObserver: NSObjectProtocol?
+    private var startDate: Date?
+    private var emergencyTriggered = false
     public private(set) var isActive = false
 
     /// Called when the session ends (normal timeout, emergency cancel, or programmatic cancel).
@@ -57,6 +59,8 @@ public final class TapLockSession {
             throw error
         }
         isActive = true
+        startDate = Date()
+        emergencyTriggered = false
 
         if config.dim { BrightnessControl.shared.dim() }
         if !config.silent { SoundPlayer.play("Tink") }
@@ -77,6 +81,7 @@ public final class TapLockSession {
         emergencyObserver = NotificationCenter.default.addObserver(
             forName: .cleanLockEmergencyCancel, object: nil, queue: .main
         ) { [weak self] _ in
+            self?.emergencyTriggered = true
             self?.end()
         }
 
@@ -129,6 +134,19 @@ public final class TapLockSession {
         emergencyObserver = nil
         chordStartedObserver = nil
         chordReleasedObserver = nil
+
+        if let start = startDate {
+            let actual = Int(Date().timeIntervalSince(start))
+            StatsStore.shared.append(.lockCompleted(.init(
+                timestamp: start,
+                plannedSeconds: config.duration,
+                actualSeconds: actual,
+                emergencyCancelled: emergencyTriggered,
+                keyboardOnly: config.keyboardOnly,
+                dim: config.dim
+            )))
+            startDate = nil
+        }
 
         if !config.silent { SoundPlayer.play("Glass") }
 
