@@ -278,14 +278,8 @@ func runRelaxMode(_ args: [String]) {
 
     session.start()
 
-    // Signal handling
-    let sigTermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-    sigTermSource.setEventHandler { session.cancel() }
-    sigTermSource.resume()
-
-    let sigIntSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
-    sigIntSource.setEventHandler { session.cancel() }
-    sigIntSource.resume()
+    let signalSources = installSignalHandlers { session.cancel() }
+    _ = signalSources
 
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
@@ -380,14 +374,8 @@ func runLockMode() {
         startLock()
     }
 
-    // Signal handling via DispatchSource (replaces polling timer)
-    let sigTermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
-    sigTermSource.setEventHandler { session.cancel() }
-    sigTermSource.resume()
-
-    let sigIntSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
-    sigIntSource.setEventHandler { session.cancel() }
-    sigIntSource.resume()
+    let signalSources = installSignalHandlers { session.cancel() }
+    _ = signalSources
 
     // Run the main run loop
     let app = NSApplication.shared

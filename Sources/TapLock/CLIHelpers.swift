@@ -84,6 +84,20 @@ struct PIDFile {
 let lockPIDFile = PIDFile(name: "taplock.pid", label: "TapLock session")
 let relaxPIDFile = PIDFile(name: "taplock-relax.pid", label: "relaxing session")
 
+// MARK: - Signal Handlers
+
+/// Install matching SIGTERM + SIGINT handlers, both invoking `onCancel`.
+/// The returned sources must be retained by the caller for their lifetime
+/// (DispatchSourceSignal stops firing once released).
+func installSignalHandlers(onCancel: @escaping () -> Void) -> [DispatchSourceSignal] {
+    [SIGTERM, SIGINT].map { signal in
+        let source = DispatchSource.makeSignalSource(signal: signal, queue: .main)
+        source.setEventHandler(handler: onCancel)
+        source.resume()
+        return source
+    }
+}
+
 // MARK: - Help & Version
 
 func printHelp() -> Never {
