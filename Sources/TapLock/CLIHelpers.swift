@@ -3,7 +3,11 @@ import Foundation
 
 // MARK: - Constants
 
+/// Build-time version. Rewritten by CI from the most recent git tag on release.
 let version = "0.1.0"
+
+/// Auto-unlock cap (seconds) when no duration is given. Prevents permanent lockout
+/// if the emergency cancel chord fails.
 let maxSafetyDuration = 300 // 5 minutes
 
 // MARK: - Exit Codes
