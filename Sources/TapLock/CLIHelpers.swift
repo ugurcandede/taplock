@@ -6,20 +6,6 @@ import Foundation
 let version = "0.1.0"
 let maxSafetyDuration = 300 // 5 minutes
 
-let pidFilePath: String = {
-    let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-    let dir = cacheDir.appendingPathComponent("taplock")
-    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-    return dir.appendingPathComponent("taplock.pid").path
-}()
-
-let relaxPidFilePath: String = {
-    let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
-    let dir = cacheDir.appendingPathComponent("taplock")
-    try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-    return dir.appendingPathComponent("taplock-relax.pid").path
-}()
-
 // MARK: - Exit Codes
 
 enum ExitCode: Int32 {
@@ -31,98 +17,68 @@ enum ExitCode: Int32 {
 
 // MARK: - PID File IPC
 
-/// Check if another TapLock instance is running.
-func checkExistingInstance() -> Bool {
-    guard let pid = readPIDFile() else { return false }
-    return kill(pid, 0) == 0
-}
+/// Per-mode PID file used for cross-terminal cancel.
+/// The shared cache directory is created on first instantiation.
+struct PIDFile {
+    let path: String
+    let label: String
 
-func writePIDFile() {
-    let pid = ProcessInfo.processInfo.processIdentifier
-    do {
-        try String(pid).write(toFile: pidFilePath, atomically: true, encoding: .utf8)
-    } catch {
-        fputs("Warning: Could not write PID file: \(error.localizedDescription)\n", stderr)
+    init(name: String, label: String) {
+        let cacheDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let dir = cacheDir.appendingPathComponent("taplock")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        self.path = dir.appendingPathComponent(name).path
+        self.label = label
+    }
+
+    /// Write the current process ID into the file.
+    func write() {
+        let pid = ProcessInfo.processInfo.processIdentifier
+        do {
+            try String(pid).write(toFile: path, atomically: true, encoding: .utf8)
+        } catch {
+            fputs("Warning: Could not write PID file: \(error.localizedDescription)\n", stderr)
+        }
+    }
+
+    func remove() {
+        try? FileManager.default.removeItem(atPath: path)
+    }
+
+    func read() -> pid_t? {
+        guard let contents = try? String(contentsOfFile: path, encoding: .utf8),
+              let pid = Int32(contents.trimmingCharacters(in: .whitespacesAndNewlines))
+        else { return nil }
+        return pid
+    }
+
+    /// Whether the saved PID still corresponds to a live process.
+    func hasActiveProcess() -> Bool {
+        guard let pid = read() else { return false }
+        return kill(pid, 0) == 0
+    }
+
+    /// Send SIGTERM to the saved PID and exit. Stale entries are cleaned up.
+    func cancelActive() -> Never {
+        guard let pid = read() else {
+            fputs("Error: No active \(label) found.\n", stderr)
+            exit(ExitCode.noActiveSession.rawValue)
+        }
+
+        if kill(pid, 0) != 0 {
+            remove()
+            fputs("Error: No active \(label) found (stale PID file removed).\n", stderr)
+            exit(ExitCode.noActiveSession.rawValue)
+        }
+
+        kill(pid, SIGTERM)
+        print("Cancelled \(label) (PID: \(pid)).")
+        exit(ExitCode.success.rawValue)
     }
 }
 
-func removePIDFile() {
-    try? FileManager.default.removeItem(atPath: pidFilePath)
-}
-
-func readPIDFile() -> pid_t? {
-    guard let contents = try? String(contentsOfFile: pidFilePath, encoding: .utf8),
-          let pid = Int32(contents.trimmingCharacters(in: .whitespacesAndNewlines))
-    else {
-        return nil
-    }
-    return pid
-}
-
-// MARK: - Cancel Active Session
-
-func cancelActiveSession() -> Never {
-    guard let pid = readPIDFile() else {
-        fputs("Error: No active TapLock session found.\n", stderr)
-        exit(ExitCode.noActiveSession.rawValue)
-    }
-
-    if kill(pid, 0) != 0 {
-        removePIDFile()
-        fputs("Error: No active TapLock session found (stale PID file removed).\n", stderr)
-        exit(ExitCode.noActiveSession.rawValue)
-    }
-
-    kill(pid, SIGTERM)
-    print("Cancelled TapLock session (PID: \(pid)).")
-    exit(ExitCode.success.rawValue)
-}
-
-// MARK: - Relax PID File IPC
-
-func checkExistingRelaxInstance() -> Bool {
-    guard let pid = readRelaxPIDFile() else { return false }
-    return kill(pid, 0) == 0
-}
-
-func writeRelaxPIDFile() {
-    let pid = ProcessInfo.processInfo.processIdentifier
-    do {
-        try String(pid).write(toFile: relaxPidFilePath, atomically: true, encoding: .utf8)
-    } catch {
-        fputs("Warning: Could not write relax PID file: \(error.localizedDescription)\n", stderr)
-    }
-}
-
-func removeRelaxPIDFile() {
-    try? FileManager.default.removeItem(atPath: relaxPidFilePath)
-}
-
-func readRelaxPIDFile() -> pid_t? {
-    guard let contents = try? String(contentsOfFile: relaxPidFilePath, encoding: .utf8),
-          let pid = Int32(contents.trimmingCharacters(in: .whitespacesAndNewlines))
-    else {
-        return nil
-    }
-    return pid
-}
-
-func cancelActiveRelaxSession() -> Never {
-    guard let pid = readRelaxPIDFile() else {
-        fputs("Error: No active relaxing session found.\n", stderr)
-        exit(ExitCode.noActiveSession.rawValue)
-    }
-
-    if kill(pid, 0) != 0 {
-        removeRelaxPIDFile()
-        fputs("Error: No active relaxing session found (stale PID file removed).\n", stderr)
-        exit(ExitCode.noActiveSession.rawValue)
-    }
-
-    kill(pid, SIGTERM)
-    print("Cancelled relaxing session (PID: \(pid)).")
-    exit(ExitCode.success.rawValue)
-}
+let lockPIDFile = PIDFile(name: "taplock.pid", label: "TapLock session")
+let relaxPIDFile = PIDFile(name: "taplock-relax.pid", label: "relaxing session")
 
 // MARK: - Help & Version
 
