@@ -86,6 +86,7 @@ func printHelp() -> Never {
     print("""
     USAGE: taplock [duration] [options]
            taplock relax [options]
+           taplock stats [options]
 
     Temporarily disable keyboard and trackpad input while cleaning your Mac.
 
@@ -119,6 +120,15 @@ func printHelp() -> Never {
       --cancel            Cancel active relaxing session
       --config            Show saved configuration
       --reset             Delete saved configuration
+
+    STATS SUBCOMMAND:
+      taplock stats                 Today's summary
+      taplock stats --week          Last 7 days
+      taplock stats --all --json    All-time, machine-readable
+
+      --today / --week / --month / --all   Time period (default: --today)
+      --json                              JSON output for scripting
+      --reset                             Delete the event log
     """)
     exit(ExitCode.success.rawValue)
 }

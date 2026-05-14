@@ -401,6 +401,8 @@ func main() {
     let args = Array(CommandLine.arguments.dropFirst())
     if args.first == "relax" {
         runRelaxMode(Array(args.dropFirst()))
+    } else if args.first == "stats" {
+        runStatsMode(Array(args.dropFirst()))
     } else {
         runLockMode()
     }
