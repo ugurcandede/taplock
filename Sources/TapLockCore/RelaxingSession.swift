@@ -51,6 +51,9 @@ public final class RelaxingSession {
     private var postureAutoDismissTimer: Timer?
     private var postureController: PostureWindowController?
     private var windowController: RelaxingWindowController?
+    private var sessionStartDate: Date?
+    private var breakStartDate: Date?
+    private var breaksTaken: Int = 0
     public private(set) var isActive = false
 
     /// Called when the session is cancelled.
@@ -69,6 +72,16 @@ public final class RelaxingSession {
     public func start() {
         guard !isActive else { return }
         isActive = true
+        sessionStartDate = Date()
+        breaksTaken = 0
+
+        StatsStore.shared.append(.relaxSessionStarted(.init(
+            timestamp: sessionStartDate ?? Date(),
+            intervalSeconds: config.interval,
+            breakSeconds: config.breakDuration,
+            theme: config.theme.rawValue
+        )))
+
         scheduleNextBreak()
         let formatted = formatDuration(config.interval)
         print("Relaxing session started. Next break in \(formatted).")
@@ -86,6 +99,17 @@ public final class RelaxingSession {
         postureTimer?.invalidate()
         postureTimer = nil
         endBreak()
+
+        if let sessionStart = sessionStartDate {
+            let duration = Int(Date().timeIntervalSince(sessionStart))
+            StatsStore.shared.append(.relaxSessionEnded(.init(
+                timestamp: Date(),
+                durationSeconds: duration,
+                breaksTaken: breaksTaken
+            )))
+            sessionStartDate = nil
+        }
+
         onEnd?()
     }
 
@@ -127,6 +151,7 @@ public final class RelaxingSession {
     private func startBreak() {
         guard isActive else { return }
         dismissPostureReminder()
+        breakStartDate = Date()
 
         if !config.silent { SoundPlayer.play("Blow", volume: 0.3) }
 
@@ -174,11 +199,30 @@ public final class RelaxingSession {
     }
 
     private func endBreak() {
+        // A still-valid breakTimer means we're ending the break before its natural
+        // expiration — either user Skip/Esc or session cancel. The timer's own
+        // fire-handler runs after the timer becomes invalid, so this distinguishes
+        // those two paths.
+        let timerWasValid = breakTimer?.isValid ?? false
         breakTimer?.invalidate()
         breakTimer = nil
         let wasShowing = windowController != nil
         windowController?.closeOverlay()
         windowController = nil
+
+        if wasShowing, let breakStart = breakStartDate {
+            let actual = Int(Date().timeIntervalSince(breakStart))
+            StatsStore.shared.append(.relaxBreak(.init(
+                timestamp: breakStart,
+                plannedSeconds: config.breakDuration,
+                actualSeconds: actual,
+                theme: config.theme.rawValue,
+                skippedEarly: timerWasValid
+            )))
+            breaksTaken += 1
+        }
+        breakStartDate = nil
+
         if wasShowing && !config.silent { SoundPlayer.play("Glass", volume: 0.3) }
         if wasShowing { onBreakEnd?() }
     }
