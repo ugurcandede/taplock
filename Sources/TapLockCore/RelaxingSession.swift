@@ -105,7 +105,7 @@ public final class RelaxingSession {
             preNotifyTimer?.invalidate()
             preNotifyTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(preDelay), repeats: false) { [weak self] _ in
                 guard let self, self.isActive else { return }
-                self.playSound("Pop")
+                SoundPlayer.play("Pop", volume: 0.3)
             }
         }
 
@@ -128,7 +128,7 @@ public final class RelaxingSession {
         guard isActive else { return }
         dismissPostureReminder()
 
-        if !config.silent { playSound("Blow") }
+        if !config.silent { SoundPlayer.play("Blow", volume: 0.3) }
 
         windowController = RelaxingWindowController(
             duration: config.breakDuration,
@@ -179,13 +179,7 @@ public final class RelaxingSession {
         let wasShowing = windowController != nil
         windowController?.closeOverlay()
         windowController = nil
-        if wasShowing && !config.silent { playSound("Glass") }
+        if wasShowing && !config.silent { SoundPlayer.play("Glass", volume: 0.3) }
         if wasShowing { onBreakEnd?() }
-    }
-
-    private func playSound(_ name: String) {
-        guard let sound = NSSound(named: NSSound.Name(name)) else { return }
-        sound.volume = 0.3
-        sound.play()
     }
 }

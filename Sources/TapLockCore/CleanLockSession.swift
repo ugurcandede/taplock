@@ -59,7 +59,7 @@ public final class TapLockSession {
         isActive = true
 
         if config.dim { BrightnessControl.shared.dim() }
-        if !config.silent { playSound("Tink") }
+        if !config.silent { SoundPlayer.play("Tink") }
 
         if config.showOverlay {
             overlayController = CountdownWindowController(
@@ -130,13 +130,8 @@ public final class TapLockSession {
         chordStartedObserver = nil
         chordReleasedObserver = nil
 
-        if !config.silent { playSound("Glass") }
+        if !config.silent { SoundPlayer.play("Glass") }
 
         onEnd?()
-    }
-
-    /// Play a system sound by name (non-blocking).
-    private func playSound(_ name: String) {
-        NSSound(named: NSSound.Name(name))?.play()
     }
 }
