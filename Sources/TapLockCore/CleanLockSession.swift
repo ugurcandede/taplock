@@ -32,7 +32,10 @@ public struct SessionConfig {
 public final class TapLockSession {
     private let config: SessionConfig
     private var overlayController: CountdownWindowController?
+    private var chordIndicator: ChordHoldIndicatorController?
     private var emergencyObserver: NSObjectProtocol?
+    private var chordStartedObserver: NSObjectProtocol?
+    private var chordReleasedObserver: NSObjectProtocol?
     public private(set) var isActive = false
 
     /// Called when the session ends (normal timeout, emergency cancel, or programmatic cancel).
@@ -66,11 +69,35 @@ public final class TapLockSession {
             overlayController?.showOverlay()
         }
 
-        // Listen for emergency cancel
+        chordIndicator = ChordHoldIndicatorController(
+            totalDuration: InputBlocker.emergencyHoldDuration,
+            accentColor: config.overlayColor
+        )
+
         emergencyObserver = NotificationCenter.default.addObserver(
             forName: .cleanLockEmergencyCancel, object: nil, queue: .main
         ) { [weak self] _ in
             self?.end()
+        }
+
+        chordStartedObserver = NotificationCenter.default.addObserver(
+            forName: .emergencyCancelChordStarted, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self = self, self.isActive else { return }
+            self.chordIndicator?.show()
+            if self.config.dim {
+                BrightnessControl.shared.restore(animated: true, duration: 0.35, clearSaved: false)
+            }
+        }
+
+        chordReleasedObserver = NotificationCenter.default.addObserver(
+            forName: .emergencyCancelChordReleased, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self = self, self.isActive else { return }
+            self.chordIndicator?.hide()
+            if self.config.dim {
+                BrightnessControl.shared.dim(animated: true, duration: 0.45)
+            }
         }
 
         // Schedule auto-unlock
@@ -93,11 +120,15 @@ public final class TapLockSession {
         BrightnessControl.shared.restore()
         overlayController?.closeOverlay()
         overlayController = nil
+        chordIndicator?.dispose()
+        chordIndicator = nil
 
-        if let observer = emergencyObserver {
-            NotificationCenter.default.removeObserver(observer)
-            emergencyObserver = nil
+        for observer in [emergencyObserver, chordStartedObserver, chordReleasedObserver] {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
         }
+        emergencyObserver = nil
+        chordStartedObserver = nil
+        chordReleasedObserver = nil
 
         if !config.silent { playSound("Glass") }
 
