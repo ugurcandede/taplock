@@ -22,14 +22,22 @@ public enum TapLockError: Error, CustomStringConvertible {
     }
 }
 
-/// Notification posted when emergency cancel is triggered (⌘⌥⌃L held 3s).
+/// Emergency cancel notifications.
 extension Notification.Name {
+    /// Posted when the user has held ⌘⌥⌃L for the full hold duration; the session should end.
     public static let cleanLockEmergencyCancel = Notification.Name("cleanLockEmergencyCancel")
+    /// Posted when ⌘⌥⌃L is first detected as fully held; UI may show a hold-to-cancel indicator.
+    public static let emergencyCancelChordStarted = Notification.Name("emergencyCancelChordStarted")
+    /// Posted when the chord is broken before the hold duration elapses.
+    public static let emergencyCancelChordReleased = Notification.Name("emergencyCancelChordReleased")
 }
 
 /// Blocks keyboard and trackpad/mouse input via CGEvent tap.
 public final class InputBlocker {
     public static let shared = InputBlocker()
+
+    /// Duration the emergency combo must be held to trigger cancel.
+    public static let emergencyHoldDuration: TimeInterval = 3.0
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -37,14 +45,14 @@ public final class InputBlocker {
     private var keyboardOnly = false
     private var cancelTriggered = false
 
-    /// Tracks when the emergency cancel combo was first detected.
-    var emergencyCancelStart: Date?
+    /// Whether the L key is currently held down (tracked via keyDown/keyUp).
+    var lKeyDown = false
+    /// `true` between `chordStarted` and either `chordReleased` or `cleanLockEmergencyCancel`.
+    var chordActive = false
+    private var chordHoldTimer: Timer?
 
     /// The L key's macOS virtual keycode.
     private static let lKeyCode: Int64 = 0x25
-
-    /// Duration the emergency combo must be held.
-    private static let emergencyHoldDuration: TimeInterval = 3.0
 
     private init() {}
 
@@ -58,8 +66,11 @@ public final class InputBlocker {
         guard InputBlocker.checkAccessibility() else { throw TapLockError.accessibilityDenied }
 
         self.keyboardOnly = keyboardOnly
-        self.emergencyCancelStart = nil
         self.cancelTriggered = false
+        self.lKeyDown = false
+        self.chordActive = false
+        self.chordHoldTimer?.invalidate()
+        self.chordHoldTimer = nil
 
         var eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.keyUp.rawValue)
@@ -115,12 +126,21 @@ public final class InputBlocker {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
         }
 
-        // No cursor restore needed — we don't hide it
+        chordHoldTimer?.invalidate()
+        chordHoldTimer = nil
+        let hadActiveChord = chordActive
+        chordActive = false
+        lKeyDown = false
 
         eventTap = nil
         runLoopSource = nil
-        emergencyCancelStart = nil
         isBlocking = false
+
+        if hadActiveChord && !cancelTriggered {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .emergencyCancelChordReleased, object: nil)
+            }
+        }
     }
 
     // MARK: - Accessibility
@@ -160,6 +180,38 @@ public final class InputBlocker {
         return false
     }
 
+    // MARK: - Chord evaluation
+
+    /// Re-evaluate whether ⌘⌥⌃L is fully held; transition into or out of the chord-active state.
+    fileprivate func evaluateChord(cmd: Bool, opt: Bool, ctrl: Bool) {
+        let chord = cmd && opt && ctrl && lKeyDown
+
+        if chord && !chordActive && !cancelTriggered {
+            chordActive = true
+            chordHoldTimer?.invalidate()
+            chordHoldTimer = Timer.scheduledTimer(
+                withTimeInterval: InputBlocker.emergencyHoldDuration,
+                repeats: false
+            ) { [weak self] _ in
+                guard let self = self, self.chordActive, !self.cancelTriggered else { return }
+                self.cancelTriggered = true
+                self.chordActive = false
+                self.chordHoldTimer = nil
+                NotificationCenter.default.post(name: .cleanLockEmergencyCancel, object: nil)
+            }
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .emergencyCancelChordStarted, object: nil)
+            }
+        } else if !chord && chordActive {
+            chordActive = false
+            chordHoldTimer?.invalidate()
+            chordHoldTimer = nil
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .emergencyCancelChordReleased, object: nil)
+            }
+        }
+    }
+
     // MARK: - CGEvent Tap Callback
 
     private static let eventTapCallback: CGEventTapCallBack = {
@@ -178,38 +230,21 @@ public final class InputBlocker {
         guard let userInfo = userInfo else { return nil }
         let blocker = Unmanaged<InputBlocker>.fromOpaque(userInfo).takeUnretainedValue()
 
-        // Emergency cancel detection: ⌘⌥⌃L held for 3 seconds
-        if type == .keyDown || type == .flagsChanged {
-            let flags = event.flags
-            let hasCmd = flags.contains(.maskCommand)
-            let hasOpt = flags.contains(.maskAlternate)
-            let hasCtrl = flags.contains(.maskControl)
-
-            if hasCmd && hasOpt && hasCtrl {
-                if type == .keyDown {
-                    let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-                    if keyCode == lKeyCode {
-                        if blocker.emergencyCancelStart == nil {
-                            blocker.emergencyCancelStart = Date()
-                        }
-                        if let start = blocker.emergencyCancelStart,
-                           Date().timeIntervalSince(start) >= emergencyHoldDuration,
-                           !blocker.cancelTriggered
-                        {
-                            blocker.cancelTriggered = true
-                            DispatchQueue.main.async {
-                                blocker.stopBlocking()
-                                NotificationCenter.default.post(
-                                    name: .cleanLockEmergencyCancel, object: nil
-                                )
-                            }
-                            return Unmanaged.passUnretained(event)
-                        }
-                    }
-                }
-            } else {
-                blocker.emergencyCancelStart = nil
+        if type == .keyDown || type == .keyUp || type == .flagsChanged {
+            if type == .keyDown {
+                let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+                if keyCode == lKeyCode { blocker.lKeyDown = true }
+            } else if type == .keyUp {
+                let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+                if keyCode == lKeyCode { blocker.lKeyDown = false }
             }
+
+            let flags = event.flags
+            blocker.evaluateChord(
+                cmd: flags.contains(.maskCommand),
+                opt: flags.contains(.maskAlternate),
+                ctrl: flags.contains(.maskControl)
+            )
         }
 
         return nil

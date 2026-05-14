@@ -31,11 +31,23 @@ struct TapLockErrorTests {
     }
 }
 
-@Suite("Emergency Cancel Notification")
+@Suite("Emergency Cancel Notifications")
 struct EmergencyCancelNotificationTests {
 
-    @Test func notificationName() {
+    @Test func cancelNotificationName() {
         #expect(Notification.Name.cleanLockEmergencyCancel.rawValue == "cleanLockEmergencyCancel")
+    }
+
+    @Test func chordStartedNotificationName() {
+        #expect(Notification.Name.emergencyCancelChordStarted.rawValue == "emergencyCancelChordStarted")
+    }
+
+    @Test func chordReleasedNotificationName() {
+        #expect(Notification.Name.emergencyCancelChordReleased.rawValue == "emergencyCancelChordReleased")
+    }
+
+    @Test func holdDurationIsThreeSeconds() {
+        #expect(InputBlocker.emergencyHoldDuration == 3.0)
     }
 }
 
@@ -50,7 +62,8 @@ struct InputBlockerStateTests {
         #expect(InputBlocker.shared.isBlocking == false)
     }
 
-    @Test func initialEmergencyCancelStartNil() {
-        #expect(InputBlocker.shared.emergencyCancelStart == nil)
+    @Test func initialChordInactive() {
+        #expect(InputBlocker.shared.chordActive == false)
+        #expect(InputBlocker.shared.lKeyDown == false)
     }
 }
