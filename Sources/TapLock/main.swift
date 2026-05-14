@@ -28,7 +28,7 @@ func parseArguments() -> CLIOptions {
         case "--version", "-v":
             printVersion()
         case "--cancel":
-            cancelActiveSession()
+            lockPIDFile.cancelActive()
         case "--keyboard-only":
             opts.keyboardOnly = true
         case "--no-overlay":
@@ -100,7 +100,7 @@ func parseRelaxArguments(_ args: [String]) -> RelaxOptions {
         case "--help", "-h":
             printHelp()
         case "--cancel":
-            cancelActiveRelaxSession()
+            relaxPIDFile.cancelActive()
         case "--config":
             showRelaxConfig()
         case "--reset":
@@ -260,17 +260,17 @@ func runRelaxMode(_ args: [String]) {
     }
 
     // Check for existing relax instance
-    if checkExistingRelaxInstance() {
+    if relaxPIDFile.hasActiveProcess() {
         fputs("Error: Another relaxing session is already running. Use 'taplock relax --cancel' to stop it.\n", stderr)
         exit(ExitCode.generalError.rawValue)
     }
 
-    writeRelaxPIDFile()
+    relaxPIDFile.write()
 
     let session = RelaxingSession(config: config)
 
     session.onEnd = {
-        removeRelaxPIDFile()
+        relaxPIDFile.remove()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             exit(ExitCode.success.rawValue)
         }
@@ -308,7 +308,7 @@ func runLockMode() {
     }
 
     // Check for existing instance
-    if checkExistingInstance() {
+    if lockPIDFile.hasActiveProcess() {
         fputs("Error: Another TapLock session is already running. Use --cancel to stop it.\n", stderr)
         exit(ExitCode.generalError.rawValue)
     }
@@ -322,7 +322,7 @@ func runLockMode() {
     }
 
     // Write PID file
-    writePIDFile()
+    lockPIDFile.write()
 
     // Session setup
     let config = SessionConfig(
@@ -337,7 +337,7 @@ func runLockMode() {
     let session = TapLockSession(config: config)
 
     session.onEnd = {
-        removePIDFile()
+        lockPIDFile.remove()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             exit(ExitCode.success.rawValue)
         }
@@ -349,7 +349,7 @@ func runLockMode() {
             try session.start()
         } catch {
             fputs("Error: \(error)\n", stderr)
-            removePIDFile()
+            lockPIDFile.remove()
             exit(ExitCode.generalError.rawValue)
         }
 
