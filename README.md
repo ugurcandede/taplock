@@ -16,7 +16,7 @@
 <p style="text-align: center">
   <a href="https://ugurcandede.github.io/taplock-app"><img src="https://img.shields.io/badge/Website-000?style=flat-square&logo=safari&logoColor=white" alt="Website"></a>
   <a href="https://github.com/ugurcandede/taplock-app"><img src="https://img.shields.io/badge/App%20Repo-000?style=flat-square&logo=github&logoColor=white" alt="App Repo"></a>
-  <a href="https://github.com/ugurcandede/homebrew-taplock"><img src="https://img.shields.io/badge/Homebrew%20Tap-FBB040?style=flat-square&logo=homebrew&logoColor=000" alt="Homebrew"></a>
+  <a href="https://github.com/ugurcandede/homebrew-tap"><img src="https://img.shields.io/badge/Homebrew%20Tap-FBB040?style=flat-square&logo=homebrew&logoColor=000" alt="Homebrew"></a>
 </p>
 
 ---
@@ -24,7 +24,7 @@
 ## Install
 
 ```bash
-brew tap ugurcandede/taplock
+brew tap ugurcandede/tap
 brew install taplock                # CLI
 brew install --cask taplock-app     # Menu bar app
 ```
