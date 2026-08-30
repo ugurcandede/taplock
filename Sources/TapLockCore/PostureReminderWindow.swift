@@ -10,39 +10,46 @@ struct PostureReminderView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header accent bar
-            RoundedRectangle(cornerRadius: 2)
-                .fill(LinearGradient(
-                    colors: [.green.opacity(0.6), .teal.opacity(0.6)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                ))
-                .frame(height: 3)
-                .padding(.horizontal, 40)
-                .padding(.top, 16)
+            // Halo + figure with the accent bar sweeping down across them
+            ZStack(alignment: .top) {
+                ZStack {
+                    Circle()
+                        .fill(.green.opacity(0.08))
+                        .frame(width: 80, height: 80)
+                        .scaleEffect(isAnimating ? 1.15 : 0.9)
+                        .animation(
+                            .easeInOut(duration: 3).repeatForever(autoreverses: true),
+                            value: isAnimating
+                        )
 
-            Spacer().frame(height: 20)
+                    Image(systemName: "figure.stand")
+                        .font(.system(size: 36, weight: .light))
+                        .foregroundStyle(.primary.opacity(0.7))
+                        .scaleEffect(isAnimating ? 1.04 : 0.96)
+                        .animation(
+                            .easeInOut(duration: 2).repeatForever(autoreverses: true),
+                            value: isAnimating
+                        )
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 20)
 
-            // Animated figure
-            ZStack {
-                Circle()
-                    .fill(.green.opacity(0.08))
-                    .frame(width: 80, height: 80)
-                    .scaleEffect(isAnimating ? 1.15 : 0.9)
-                    .animation(
-                        .easeInOut(duration: 3).repeatForever(autoreverses: true),
-                        value: isAnimating
-                    )
-
-                Image(systemName: "figure.stand")
-                    .font(.system(size: 36, weight: .light))
-                    .foregroundStyle(.primary.opacity(0.7))
-                    .scaleEffect(isAnimating ? 1.04 : 0.96)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(LinearGradient(
+                        colors: [.green.opacity(0.6), .teal.opacity(0.6)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ))
+                    .frame(height: 3)
+                    .padding(.horizontal, 40)
+                    .offset(y: isAnimating ? 97 : 0)
                     .animation(
                         .easeInOut(duration: 2).repeatForever(autoreverses: true),
                         value: isAnimating
                     )
             }
+            .frame(height: 104)
+            .padding(.top, 16)
 
             Spacer().frame(height: 16)
 
@@ -82,7 +89,6 @@ struct PostureReminderView: View {
         .frame(width: 240)
         .background(.regularMaterial)
         .cornerRadius(12)
-        .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .stroke(.primary.opacity(0.06), lineWidth: 0.5)
@@ -114,11 +120,23 @@ public final class PostureWindowController {
     public func showOverlay() {
         guard let screen = NSScreen.main else { return }
 
-        let width: CGFloat = 260
-        let height: CGFloat = 280
-        let x = screen.frame.midX - width / 2
-        let y = screen.frame.maxY - height - 80
-        let frame = NSRect(x: x, y: y, width: width, height: height)
+        let dismissAction: () -> Void = { [weak self] in
+            self?.onDismiss?()
+        }
+
+        // The material backdrop fills the whole hosting view, not just the
+        // card, so the window must match the card exactly and clip to its
+        // corner radius — any margin shows as a glass halo behind the card.
+        let hostingView = NSHostingView(rootView: PostureReminderView(onDismiss: dismissAction))
+        let size = hostingView.fittingSize
+        hostingView.frame = NSRect(origin: .zero, size: size)
+        hostingView.wantsLayer = true
+        hostingView.layer?.cornerRadius = 12
+        hostingView.layer?.masksToBounds = true
+
+        let x = screen.frame.midX - size.width / 2
+        let y = screen.frame.maxY - size.height - 80
+        let frame = NSRect(x: x, y: y, width: size.width, height: size.height)
 
         let panel = NSPanel(
             contentRect: frame,
@@ -133,15 +151,6 @@ public final class PostureWindowController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.ignoresMouseEvents = false
 
-        let dismissAction: () -> Void = { [weak self] in
-            self?.onDismiss?()
-        }
-
-        let hostingView = NSHostingView(
-            rootView: PostureReminderView(onDismiss: dismissAction)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        )
-        hostingView.frame = NSRect(origin: .zero, size: frame.size)
         panel.contentView = hostingView
 
         panel.makeKeyAndOrderFront(nil)
