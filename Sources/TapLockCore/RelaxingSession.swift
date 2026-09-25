@@ -17,6 +17,9 @@ public struct RelaxingSessionConfig: Codable {
     public var opacity: Double
     public var silent: Bool
     public var showPostureReminder: Bool
+    /// Seconds between posture reminders while waiting for a break. nil keeps the
+    /// original behavior: a single reminder halfway through the interval.
+    public var postureInterval: Int?
 
     public init(
         interval: Int,
@@ -25,7 +28,8 @@ public struct RelaxingSessionConfig: Codable {
         color: String = "green",
         opacity: Double = 0.85,
         silent: Bool = false,
-        showPostureReminder: Bool = true
+        showPostureReminder: Bool = true,
+        postureInterval: Int? = nil
     ) {
         self.interval = interval
         self.breakDuration = breakDuration
@@ -34,6 +38,7 @@ public struct RelaxingSessionConfig: Codable {
         self.opacity = opacity
         self.silent = silent
         self.showPostureReminder = showPostureReminder
+        self.postureInterval = postureInterval
     }
 }
 
@@ -42,8 +47,12 @@ public struct RelaxingSessionConfig: Codable {
 /// Manages a repeating relaxing break session: waits for the interval,
 /// shows a relaxing overlay, then repeats.
 public final class RelaxingSession {
-    public let config: RelaxingSessionConfig
-    private let resolvedColor: (r: Double, g: Double, b: Double)
+    /// Mutable so appearance settings can change mid-session; changes apply
+    /// from the next scheduled break.
+    public var config: RelaxingSessionConfig {
+        didSet { resolvedColor = Self.resolveColor(config.color) }
+    }
+    private var resolvedColor: (r: Double, g: Double, b: Double)
     private var intervalTimer: Timer?
     private var breakTimer: Timer?
     private var preNotifyTimer: Timer?
@@ -65,7 +74,11 @@ public final class RelaxingSession {
 
     public init(config: RelaxingSessionConfig) {
         self.config = config
-        self.resolvedColor = parseColor(config.color) ?? (r: 0, g: 0.8, b: 0) // fallback green
+        self.resolvedColor = Self.resolveColor(config.color)
+    }
+
+    private static func resolveColor(_ color: String) -> (r: Double, g: Double, b: Double) {
+        parseColor(color) ?? (r: 0, g: 0.8, b: 0) // fallback green
     }
 
     /// Start the interval loop. Call from main thread.
@@ -120,13 +133,30 @@ public final class RelaxingSession {
         scheduleNextBreak()
     }
 
-    private func scheduleNextBreak() {
+    /// Start the upcoming break immediately instead of waiting for the interval.
+    public func startBreakNow() {
+        guard isActive, windowController == nil else { return }
+        cancelPendingTimers()
+        startBreak()
+    }
+
+    private func cancelPendingTimers() {
         intervalTimer?.invalidate()
+        intervalTimer = nil
+        preNotifyTimer?.invalidate()
+        preNotifyTimer = nil
+        postureTimer?.invalidate()
+        postureTimer = nil
+    }
+
+    private func scheduleNextBreak() {
+        // Config may have changed since the last schedule (e.g. silent or posture
+        // toggled), so clear every pending timer, not only the ones re-created below.
+        cancelPendingTimers()
 
         // Pre-notification sound ~10s before break (if interval > 15s and not silent)
         if !config.silent && config.interval > 15 {
             let preDelay = max(0, config.interval - 10)
-            preNotifyTimer?.invalidate()
             preNotifyTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(preDelay), repeats: false) { [weak self] _ in
                 guard let self, self.isActive else { return }
                 SoundPlayer.play("Pop", volume: 0.3)
@@ -137,10 +167,17 @@ public final class RelaxingSession {
             self?.startBreak()
         }
 
-        // Posture reminder at interval/2
-        if config.showPostureReminder && config.interval > 10 {
+        if config.showPostureReminder, let every = config.postureInterval {
+            // Repeat every `every` seconds until the break starts.
+            if every > 0 && every < config.interval {
+                postureTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(every), repeats: true) { [weak self] _ in
+                    guard let self, self.isActive, self.windowController == nil else { return }
+                    self.showPostureReminder()
+                }
+            }
+        } else if config.showPostureReminder && config.interval > 10 {
+            // Posture reminder at interval/2
             let postureDelay = TimeInterval(config.interval) / 2.0
-            postureTimer?.invalidate()
             postureTimer = Timer.scheduledTimer(withTimeInterval: postureDelay, repeats: false) { [weak self] _ in
                 guard let self, self.isActive else { return }
                 self.showPostureReminder()
@@ -150,6 +187,8 @@ public final class RelaxingSession {
 
     private func startBreak() {
         guard isActive else { return }
+        postureTimer?.invalidate()
+        postureTimer = nil
         dismissPostureReminder()
         breakStartDate = Date()
 
