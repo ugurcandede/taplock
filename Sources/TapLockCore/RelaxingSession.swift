@@ -242,6 +242,8 @@ public final class RelaxingSession {
         breakTimer?.invalidate()
         breakTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(config.breakDuration), repeats: false) { [weak self] _ in
             guard let self, self.isActive else { return }
+            // Drop the timer first so endBreak can tell natural expiry from an early skip.
+            self.breakTimer = nil
             self.skipBreak()
         }
 
@@ -270,11 +272,11 @@ public final class RelaxingSession {
     }
 
     private func endBreak() {
-        // A still-valid breakTimer means we're ending the break before its natural
+        // A still-present breakTimer means we're ending the break before its natural
         // expiration — either user Skip/Esc or session cancel. The timer's own
-        // fire-handler runs after the timer becomes invalid, so this distinguishes
+        // fire-handler clears it before calling skipBreak, so this distinguishes
         // those two paths.
-        let timerWasValid = breakTimer?.isValid ?? false
+        let timerWasValid = breakTimer != nil
         breakTimer?.invalidate()
         breakTimer = nil
         let wasShowing = windowController != nil

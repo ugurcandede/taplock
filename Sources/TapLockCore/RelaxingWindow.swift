@@ -161,6 +161,13 @@ struct BreathingBackground: View {
 
 // MARK: - Window Controller
 
+/// Borderless panels refuse key status by default, so keyboard events never reach the
+/// overlay unless TapLock is the active app. Accepting key status lets the panel take
+/// Esc without activating the app (`.nonactivatingPanel`).
+private final class KeyablePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+}
+
 /// Controls the full-screen relaxing overlay.
 public final class RelaxingWindowController {
     private var panel: NSPanel?
@@ -208,7 +215,7 @@ public final class RelaxingWindowController {
             panelFrame = screen.frame
         }
 
-        let panel = NSPanel(
+        let panel = KeyablePanel(
             contentRect: panelFrame,
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
