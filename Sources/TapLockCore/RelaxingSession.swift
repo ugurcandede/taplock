@@ -47,10 +47,16 @@ public struct RelaxingSessionConfig: Codable {
 /// Manages a repeating relaxing break session: waits for the interval,
 /// shows a relaxing overlay, then repeats.
 public final class RelaxingSession {
-    /// Mutable so appearance settings can change mid-session; changes apply
-    /// from the next scheduled break.
+    /// Mutable so settings can change mid-session. Sound and posture changes
+    /// apply to the current wait right away; the overlay picks up appearance
+    /// changes at the next break. Changing `interval` takes effect next cycle.
     public var config: RelaxingSessionConfig {
-        didSet { resolvedColor = Self.resolveColor(config.color) }
+        didSet {
+            resolvedColor = Self.resolveColor(config.color)
+            guard isActive, waitStartDate != nil else { return }
+            if !config.showPostureReminder { dismissPostureReminder() }
+            scheduleReminders()
+        }
     }
     private var resolvedColor: (r: Double, g: Double, b: Double)
     private var intervalTimer: Timer?
@@ -62,6 +68,8 @@ public final class RelaxingSession {
     private var windowController: RelaxingWindowController?
     private var sessionStartDate: Date?
     private var breakStartDate: Date?
+    /// Start of the current wait for a break; nil during a break or when inactive.
+    private var waitStartDate: Date?
     private var breaksTaken: Int = 0
     public private(set) var isActive = false
 
@@ -104,6 +112,7 @@ public final class RelaxingSession {
     public func cancel() {
         guard isActive else { return }
         isActive = false
+        waitStartDate = nil
         intervalTimer?.invalidate()
         intervalTimer = nil
         preNotifyTimer?.invalidate()
@@ -150,43 +159,66 @@ public final class RelaxingSession {
     }
 
     private func scheduleNextBreak() {
-        // Config may have changed since the last schedule (e.g. silent or posture
-        // toggled), so clear every pending timer, not only the ones re-created below.
         cancelPendingTimers()
-
-        // Pre-notification sound ~10s before break (if interval > 15s and not silent)
-        if !config.silent && config.interval > 15 {
-            let preDelay = max(0, config.interval - 10)
-            preNotifyTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(preDelay), repeats: false) { [weak self] _ in
-                guard let self, self.isActive else { return }
-                SoundPlayer.play("Pop", volume: 0.3)
-            }
-        }
+        waitStartDate = Date()
 
         intervalTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(config.interval), repeats: false) { [weak self] _ in
             self?.startBreak()
         }
 
+        scheduleReminders()
+    }
+
+    /// (Re)schedule the pre-break sound and posture reminders for the current wait.
+    /// Delays are measured from the start of the wait, so calling this after a
+    /// config change keeps them aligned with the running countdown.
+    private func scheduleReminders() {
+        preNotifyTimer?.invalidate()
+        preNotifyTimer = nil
+        postureTimer?.invalidate()
+        postureTimer = nil
+        guard let waitStart = waitStartDate else { return }
+        let elapsed = Date().timeIntervalSince(waitStart)
+        let interval = TimeInterval(config.interval)
+
+        // Pre-notification sound ~10s before break (if interval > 15s and not silent)
+        if !config.silent && config.interval > 15 {
+            let preDelay = interval - 10 - elapsed
+            if preDelay > 0 {
+                preNotifyTimer = Timer.scheduledTimer(withTimeInterval: preDelay, repeats: false) { [weak self] _ in
+                    guard let self, self.isActive else { return }
+                    SoundPlayer.play("Pop", volume: 0.3)
+                }
+            }
+        }
+
         if config.showPostureReminder, let every = config.postureInterval {
-            // Repeat every `every` seconds until the break starts.
+            // Repeat every `every` seconds of the wait until the break starts.
             if every > 0 && every < config.interval {
-                postureTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(every), repeats: true) { [weak self] _ in
+                let period = TimeInterval(every)
+                let firstFire = Date().addingTimeInterval(period - elapsed.truncatingRemainder(dividingBy: period))
+                let timer = Timer(fire: firstFire, interval: period, repeats: true) { [weak self] _ in
                     guard let self, self.isActive, self.windowController == nil else { return }
                     self.showPostureReminder()
                 }
+                RunLoop.main.add(timer, forMode: .default)
+                postureTimer = timer
             }
         } else if config.showPostureReminder && config.interval > 10 {
             // Posture reminder at interval/2
-            let postureDelay = TimeInterval(config.interval) / 2.0
-            postureTimer = Timer.scheduledTimer(withTimeInterval: postureDelay, repeats: false) { [weak self] _ in
-                guard let self, self.isActive else { return }
-                self.showPostureReminder()
+            let postureDelay = interval / 2.0 - elapsed
+            if postureDelay > 0 {
+                postureTimer = Timer.scheduledTimer(withTimeInterval: postureDelay, repeats: false) { [weak self] _ in
+                    guard let self, self.isActive else { return }
+                    self.showPostureReminder()
+                }
             }
         }
     }
 
     private func startBreak() {
         guard isActive else { return }
+        waitStartDate = nil
         postureTimer?.invalidate()
         postureTimer = nil
         dismissPostureReminder()
