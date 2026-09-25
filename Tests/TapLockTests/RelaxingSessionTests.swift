@@ -132,4 +132,21 @@ struct RelaxingSessionStateTests {
         #expect(!breakStartCalled)
         #expect(!breakEndCalled)
     }
+
+    @Test func configMutable() {
+        let session = RelaxingSession(config: RelaxingSessionConfig(interval: 1500, breakDuration: 300))
+        session.config.theme = .mini
+        session.config.color = "red"
+        #expect(session.config.theme == .mini)
+        #expect(session.config.color == "red")
+    }
+
+    @Test func startBreakNowWhenInactiveIsNoop() {
+        let session = RelaxingSession(config: RelaxingSessionConfig(interval: 1500, breakDuration: 300))
+        var breakStartCalled = false
+        session.onBreakStart = { breakStartCalled = true }
+        session.startBreakNow()
+        #expect(!breakStartCalled)
+        #expect(session.isActive == false)
+    }
 }

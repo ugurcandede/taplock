@@ -27,6 +27,24 @@ struct ConfigStoreTests {
         #expect(decoded.showPostureReminder == original.showPostureReminder)
     }
 
+    @Test func postureIntervalDefaultsToNil() {
+        let config = RelaxingSessionConfig(interval: 1500, breakDuration: 300)
+        #expect(config.postureInterval == nil)
+    }
+
+    @Test func postureIntervalRoundTrip() throws {
+        let original = RelaxingSessionConfig(interval: 1500, breakDuration: 300, postureInterval: 600)
+        let data = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(RelaxingSessionConfig.self, from: data)
+        #expect(decoded.postureInterval == 600)
+    }
+
+    @Test func decodesConfigWithoutPostureInterval() throws {
+        let json = #"{"interval":1500,"breakDuration":300,"theme":"breathing","color":"green","opacity":0.85,"silent":false,"showPostureReminder":true}"#
+        let decoded = try JSONDecoder().decode(RelaxingSessionConfig.self, from: Data(json.utf8))
+        #expect(decoded.postureInterval == nil)
+    }
+
     @Test func customValuesRoundTrip() throws {
         let original = RelaxingSessionConfig(
             interval: 2700,
