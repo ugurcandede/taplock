@@ -99,3 +99,45 @@ public func parseColor(_ input: String) -> (r: Double, g: Double, b: Double)? {
         b: Double(value & 0xFF) / 255.0
     )
 }
+
+// MARK: - Schedule Parsing
+
+/// Parses weekdays like `mon-fri`, `sat,sun` or `mon,wed-fri` into Calendar weekday
+/// numbers (1 = Sunday ... 7 = Saturday). Ranges may wrap around the week (`fri-mon`).
+public func parseWeekdays(_ input: String) -> Set<Int>? {
+    let names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+    var days = Set<Int>()
+    for part in input.lowercased().split(separator: ",", omittingEmptySubsequences: false) {
+        let ends = part.split(separator: "-", omittingEmptySubsequences: false)
+            .map { names.firstIndex(of: $0.trimmingCharacters(in: .whitespaces)) }
+        guard (1...2).contains(ends.count), let first = ends[0], let last = ends[ends.count - 1] else { return nil }
+        var day = first
+        days.insert(day + 1)
+        while day != last {
+            day = (day + 1) % 7
+            days.insert(day + 1)
+        }
+    }
+    return days
+}
+
+/// Parses `HH:MM-HH:MM` (or `H-H`) into minutes from midnight. The range can't
+/// cross midnight; the end may be 24:00.
+public func parseTimeRange(_ input: String) -> (start: Int, end: Int)? {
+    let parts = input.split(separator: "-", omittingEmptySubsequences: false)
+    guard parts.count == 2, let start = parseClockTime(parts[0]), let end = parseClockTime(parts[1]),
+          start < end else { return nil }
+    return (start, end)
+}
+
+private func parseClockTime(_ input: Substring) -> Int? {
+    let hm = input.trimmingCharacters(in: .whitespaces).split(separator: ":", omittingEmptySubsequences: false)
+    guard (1...2).contains(hm.count), hm[0].allSatisfy(\.isNumber), let hour = Int(hm[0]) else { return nil }
+    var minute = 0
+    if hm.count == 2 {
+        guard hm[1].count == 2, hm[1].allSatisfy(\.isNumber), let m = Int(hm[1]) else { return nil }
+        minute = m
+    }
+    guard minute < 60, hour * 60 + minute <= 24 * 60 else { return nil }
+    return hour * 60 + minute
+}

@@ -135,6 +135,12 @@ func printHelp() -> Never {
       --opacity <0.1-1.0> Overlay opacity (default: 0.85)
       --silent            Disable all sounds including pre-notification
       --no-posture-reminder  Disable posture reminder during session
+      --days <days>       Only break on these days (e.g. mon-fri, sat,sun)
+      --hours <range>     Only break between these times (e.g. 09:00-18:00)
+      --quiet <range>     No breaks in this window (e.g. 12:00-13:00)
+      --align             Breaks on fixed clock times, counted from the start of --hours
+                          (50m/10m -> 09:50, 10:50, ...). Schedule flags save with the
+                          config; --every/--break without them clears the schedule.
       --cancel            Cancel active relaxing session
       --config            Show saved configuration
       --reset             Delete saved configuration

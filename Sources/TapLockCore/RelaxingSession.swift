@@ -20,6 +20,9 @@ public struct RelaxingSessionConfig: Codable {
     /// Seconds between posture reminders while waiting for a break. nil keeps the
     /// original behavior: a single reminder halfway through the interval.
     public var postureInterval: Int?
+    /// Wall-clock rules (active hours, quiet hours, clock alignment). nil keeps
+    /// the plain "every interval" behavior.
+    public var schedule: RelaxSchedule?
 
     public init(
         interval: Int,
@@ -29,7 +32,8 @@ public struct RelaxingSessionConfig: Codable {
         opacity: Double = 0.85,
         silent: Bool = false,
         showPostureReminder: Bool = true,
-        postureInterval: Int? = nil
+        postureInterval: Int? = nil,
+        schedule: RelaxSchedule? = nil
     ) {
         self.interval = interval
         self.breakDuration = breakDuration
@@ -39,6 +43,7 @@ public struct RelaxingSessionConfig: Codable {
         self.silent = silent
         self.showPostureReminder = showPostureReminder
         self.postureInterval = postureInterval
+        self.schedule = schedule
     }
 }
 
@@ -70,7 +75,10 @@ public final class RelaxingSession {
     private var breakStartDate: Date?
     /// Start of the current wait for a break; nil during a break or when inactive.
     private var waitStartDate: Date?
+    /// When the pending break will start; nil during a break or when inactive.
+    public private(set) var nextBreakDate: Date?
     private var breaksTaken: Int = 0
+    private var wakeObserver: NSObjectProtocol?
     public private(set) var isActive = false
 
     /// Called when the session is cancelled.
@@ -103,9 +111,19 @@ public final class RelaxingSession {
             theme: config.theme.rawValue
         )))
 
+        // Timers don't advance while the Mac sleeps, so re-arm against the wall clock on wake.
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.handleWake()
+        }
+
         scheduleNextBreak()
-        let formatted = formatDuration(config.interval)
-        print("Relaxing session started. Next break in \(formatted).")
+        if config.schedule != nil, let next = nextBreakDate {
+            print("Relaxing session started. Next break at \(next.formatted(date: .abbreviated, time: .shortened)).")
+        } else {
+            print("Relaxing session started. Next break in \(formatDuration(config.interval)).")
+        }
     }
 
     /// Stop everything and clean up.
@@ -113,6 +131,7 @@ public final class RelaxingSession {
         guard isActive else { return }
         isActive = false
         waitStartDate = nil
+        nextBreakDate = nil
         intervalTimer?.invalidate()
         intervalTimer = nil
         preNotifyTimer?.invalidate()
@@ -120,10 +139,14 @@ public final class RelaxingSession {
         dismissPostureReminder()
         postureTimer?.invalidate()
         postureTimer = nil
+        if let wakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver) }
+        wakeObserver = nil
         endBreak()
 
         if let sessionStart = sessionStartDate {
-            let duration = Int(Date().timeIntervalSince(sessionStart))
+            // Time outside the schedule's hours isn't session time.
+            let duration = config.schedule?.activeSeconds(from: sessionStart, to: Date())
+                ?? Int(Date().timeIntervalSince(sessionStart))
             StatsStore.shared.append(.relaxSessionEnded(.init(
                 timestamp: Date(),
                 durationSeconds: duration,
@@ -138,8 +161,9 @@ public final class RelaxingSession {
     // MARK: - Internal
 
     public func skipBreak() {
-        endBreak()
+        // Schedule first so onBreakEnd observers can read nextBreakDate.
         scheduleNextBreak()
+        endBreak()
     }
 
     /// Start the upcoming break immediately instead of waiting for the interval.
@@ -160,13 +184,34 @@ public final class RelaxingSession {
 
     private func scheduleNextBreak() {
         cancelPendingTimers()
-        waitStartDate = Date()
+        let now = Date()
+        waitStartDate = now
+        let next = config.schedule?.nextBreak(after: now, interval: config.interval, breakDuration: config.breakDuration)
+            ?? now.addingTimeInterval(TimeInterval(config.interval))
+        nextBreakDate = next
+        armIntervalTimer(at: next)
+        scheduleReminders()
+    }
 
-        intervalTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(config.interval), repeats: false) { [weak self] _ in
+    private func armIntervalTimer(at date: Date) {
+        intervalTimer?.invalidate()
+        let timer = Timer(fire: date, interval: 0, repeats: false) { [weak self] _ in
             self?.startBreak()
         }
+        RunLoop.main.add(timer, forMode: .default)
+        intervalTimer = timer
+    }
 
-        scheduleReminders()
+    /// While waiting: keep the break at its wall-clock time, or start a fresh wait
+    /// if it passed during sleep (being away counts as the break, so don't show one).
+    private func handleWake() {
+        guard isActive, let next = nextBreakDate else { return }
+        if next > Date() {
+            armIntervalTimer(at: next)
+            scheduleReminders()
+        } else {
+            scheduleNextBreak()
+        }
     }
 
     /// (Re)schedule the pre-break sound and posture reminders for the current wait.
@@ -177,9 +222,12 @@ public final class RelaxingSession {
         preNotifyTimer = nil
         postureTimer?.invalidate()
         postureTimer = nil
-        guard let waitStart = waitStartDate else { return }
-        let elapsed = Date().timeIntervalSince(waitStart)
-        let interval = TimeInterval(config.interval)
+        guard let waitStart = waitStartDate, let nextBreak = nextBreakDate else { return }
+        // A schedule can stretch the wait over off-hours; count reminders only
+        // from the last `interval` before the break.
+        let effectiveStart = max(waitStart, nextBreak.addingTimeInterval(-TimeInterval(config.interval)))
+        let elapsed = Date().timeIntervalSince(effectiveStart)
+        let interval = nextBreak.timeIntervalSince(effectiveStart)
 
         // Pre-notification sound ~10s before break (if interval > 15s and not silent)
         if !config.silent && config.interval > 15 {
@@ -196,7 +244,9 @@ public final class RelaxingSession {
             // Repeat every `every` seconds of the wait until the break starts.
             if every > 0 && every < config.interval {
                 let period = TimeInterval(every)
-                let firstFire = Date().addingTimeInterval(period - elapsed.truncatingRemainder(dividingBy: period))
+                let firstFire = elapsed < 0
+                    ? effectiveStart.addingTimeInterval(period)
+                    : Date().addingTimeInterval(period - elapsed.truncatingRemainder(dividingBy: period))
                 let timer = Timer(fire: firstFire, interval: period, repeats: true) { [weak self] _ in
                     guard let self, self.isActive, self.windowController == nil else { return }
                     self.showPostureReminder()
@@ -219,6 +269,7 @@ public final class RelaxingSession {
     private func startBreak() {
         guard isActive else { return }
         waitStartDate = nil
+        nextBreakDate = nil
         postureTimer?.invalidate()
         postureTimer = nil
         dismissPostureReminder()

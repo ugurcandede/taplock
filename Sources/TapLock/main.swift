@@ -88,6 +88,10 @@ struct RelaxOptions {
     var opacity: Double? = nil
     var silent = false
     var noPostureReminder = false
+    var days: Set<Int>? = nil
+    var hours: (start: Int, end: Int)? = nil
+    var quiet: (start: Int, end: Int)? = nil
+    var align = false
 }
 
 func parseRelaxArguments(_ args: [String]) -> RelaxOptions {
@@ -144,6 +148,29 @@ func parseRelaxArguments(_ args: [String]) -> RelaxOptions {
                 exit(ExitCode.generalError.rawValue)
             }
             opts.opacity = val
+        case "--days":
+            i += 1
+            guard i < args.count, let days = parseWeekdays(args[i]) else {
+                fputs("Error: --days requires weekdays (e.g. mon-fri, sat,sun, mon,wed-fri).\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            opts.days = days
+        case "--hours":
+            i += 1
+            guard i < args.count, let range = parseTimeRange(args[i]) else {
+                fputs("Error: --hours requires a time range within one day (e.g. 09:00-18:00).\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            opts.hours = range
+        case "--quiet":
+            i += 1
+            guard i < args.count, let range = parseTimeRange(args[i]) else {
+                fputs("Error: --quiet requires a time range within one day (e.g. 12:00-13:00).\n", stderr)
+                exit(ExitCode.generalError.rawValue)
+            }
+            opts.quiet = range
+        case "--align":
+            opts.align = true
         default:
             fputs("Error: Unknown option '\(arg)'. Use --help for usage.\n", stderr)
             exit(ExitCode.generalError.rawValue)
@@ -152,6 +179,27 @@ func parseRelaxArguments(_ args: [String]) -> RelaxOptions {
     }
 
     return opts
+}
+
+/// Schedule flags applied on top of `base` (the saved schedule, if any).
+func applyScheduleOptions(_ opts: RelaxOptions, to base: RelaxSchedule?) -> RelaxSchedule? {
+    guard opts.days != nil || opts.hours != nil || opts.quiet != nil || opts.align else { return base }
+    var schedule = base ?? RelaxSchedule()
+    if let days = opts.days { schedule.weekdays = days }
+    if let hours = opts.hours {
+        schedule.activeStart = hours.start
+        schedule.activeEnd = hours.end
+    }
+    if let quiet = opts.quiet {
+        schedule.quietStart = quiet.start
+        schedule.quietEnd = quiet.end
+    }
+    if opts.align { schedule.alignToClock = true }
+    return schedule
+}
+
+func formatClock(_ minutes: Int) -> String {
+    String(format: "%02d:%02d", minutes / 60, minutes % 60)
 }
 
 func showRelaxConfig() -> Never {
@@ -167,6 +215,16 @@ func showRelaxConfig() -> Never {
     print("  Opacity:   \(config.opacity)")
     print("  Silent:    \(config.silent)")
     print("  Posture:   \(config.showPostureReminder)")
+    if let schedule = config.schedule {
+        let names = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+        let days = [2, 3, 4, 5, 6, 7, 1].filter(schedule.weekdays.contains).map { names[$0 - 1] }
+        print("  Days:      \(days.joined(separator: ","))")
+        print("  Hours:     \(formatClock(schedule.activeStart))-\(formatClock(schedule.activeEnd))")
+        if let qs = schedule.quietStart, let qe = schedule.quietEnd {
+            print("  Quiet:     \(formatClock(qs))-\(formatClock(qe))")
+        }
+        print("  Align:     \(schedule.alignToClock)")
+    }
     exit(ExitCode.success.rawValue)
 }
 
@@ -218,15 +276,9 @@ func runRelaxMode(_ args: [String]) {
             color: colorStr,
             opacity: opts.opacity ?? 0.85,
             silent: opts.silent,
-            showPostureReminder: !opts.noPostureReminder
+            showPostureReminder: !opts.noPostureReminder,
+            schedule: applyScheduleOptions(opts, to: nil)
         )
-
-        // Auto-save config
-        do {
-            try ConfigStore.saveRelaxConfig(config)
-        } catch {
-            fputs("Warning: Could not save config: \(error.localizedDescription)\n", stderr)
-        }
     } else if let saved = ConfigStore.loadRelaxConfig() {
         config = saved
         // Allow overriding individual options from saved config
@@ -247,6 +299,7 @@ func runRelaxMode(_ args: [String]) {
         if opts.noPostureReminder {
             config.showPostureReminder = false
         }
+        config.schedule = applyScheduleOptions(opts, to: config.schedule)
     } else {
         fputs("Error: No saved config. Provide --every and --break on first use.\n", stderr)
         fputs("Example: taplock relax --every 25m --break 5m\n", stderr)
@@ -257,6 +310,26 @@ func runRelaxMode(_ args: [String]) {
     if config.interval <= config.breakDuration {
         fputs("Error: --every must be longer than --break.\n", stderr)
         exit(ExitCode.generalError.rawValue)
+    }
+
+    if let schedule = config.schedule {
+        if let error = schedule.validationError {
+            fputs("Error: \(error).\n", stderr)
+            exit(ExitCode.generalError.rawValue)
+        }
+        if schedule.nextBreak(after: Date(), interval: config.interval, breakDuration: config.breakDuration) == nil {
+            fputs("Error: No break can happen with this schedule (is --every longer than --hours?).\n", stderr)
+            exit(ExitCode.generalError.rawValue)
+        }
+    }
+
+    // Auto-save config built from arguments, once it's known to be valid
+    if opts.every != nil {
+        do {
+            try ConfigStore.saveRelaxConfig(config)
+        } catch {
+            fputs("Warning: Could not save config: \(error.localizedDescription)\n", stderr)
+        }
     }
 
     // Check for existing relax instance

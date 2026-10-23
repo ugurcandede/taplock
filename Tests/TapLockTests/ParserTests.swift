@@ -299,3 +299,47 @@ struct LuminanceTests {
         #expect(!(lum > 0.5))
     }
 }
+
+// MARK: - Schedule Parsers
+
+@Suite("Schedule Parsers")
+struct ScheduleParserTests {
+    @Test func weekdayRange() {
+        #expect(parseWeekdays("mon-fri") == [2, 3, 4, 5, 6])
+        #expect(parseWeekdays("Sat-Sun") == [7, 1])
+    }
+
+    @Test func weekdayListAndMixed() {
+        #expect(parseWeekdays("mon,wed,fri") == [2, 4, 6])
+        #expect(parseWeekdays("mon,wed-fri") == [2, 4, 5, 6])
+    }
+
+    @Test func weekdayRangeWraps() {
+        #expect(parseWeekdays("fri-mon") == [6, 7, 1, 2])
+    }
+
+    @Test func invalidWeekdays() {
+        #expect(parseWeekdays("") == nil)
+        #expect(parseWeekdays("monday") == nil)
+        #expect(parseWeekdays("mon-") == nil)
+        #expect(parseWeekdays("mon-wed-fri") == nil)
+    }
+
+    @Test func timeRange() {
+        #expect(parseTimeRange("09:00-18:00")! == (540, 1080))
+        #expect(parseTimeRange("9-18")! == (540, 1080))
+        #expect(parseTimeRange("12:30-13:15")! == (750, 795))
+        #expect(parseTimeRange("00:00-24:00")! == (0, 1440))
+    }
+
+    @Test func invalidTimeRange() {
+        #expect(parseTimeRange("18:00-09:00") == nil)
+        #expect(parseTimeRange("22:00-02:00") == nil)
+        #expect(parseTimeRange("09:00-09:00") == nil)
+        #expect(parseTimeRange("09:60-10:00") == nil)
+        #expect(parseTimeRange("9:5-10") == nil)
+        #expect(parseTimeRange("24:30-25:00") == nil)
+        #expect(parseTimeRange("09:00") == nil)
+        #expect(parseTimeRange("+9-10") == nil)
+    }
+}
