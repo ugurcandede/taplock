@@ -1,5 +1,16 @@
 import Foundation
 
+/// Why a schedule is holding the next break back, for the paused screen.
+public enum RelaxPauseReason: Equatable {
+    /// An off day, or before or after the active hours.
+    case outsideHours
+    case quietHours
+    /// Inside the hours, but no full interval fits before quiet hours start.
+    case beforeQuietHours
+    /// Inside the hours, but no full interval fits before they end.
+    case doneForToday
+}
+
 /// Optional wall-clock rules for a relax session. A session without a schedule
 /// keeps the plain behavior: a break every `interval` seconds after the last one.
 public struct RelaxSchedule: Codable, Equatable {
@@ -73,6 +84,19 @@ public struct RelaxSchedule: Codable, Equatable {
             resume = blockStart
         }
         return nil
+    }
+
+    /// Why breaks are held back at `date`, for a session whose next break is
+    /// more than an interval away.
+    public func pauseReason(at date: Date, calendar: Calendar = .current) -> RelaxPauseReason {
+        let minute = secondOfDay(date, calendar: calendar) / 60
+        let activeToday = weekdays.contains(calendar.component(.weekday, from: date))
+        if !activeToday || minute < activeStart || minute >= activeEnd { return .outsideHours }
+        if let qs = quietStart, let qe = quietEnd {
+            if minute >= qs && minute < qe { return .quietHours }
+            if minute < qs { return .beforeQuietHours }
+        }
+        return .doneForToday
     }
 
     /// Seconds of [from, to) that fall inside active, non-quiet time.

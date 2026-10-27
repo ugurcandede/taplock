@@ -77,6 +77,14 @@ public final class RelaxingSession {
     private var waitStartDate: Date?
     /// When the pending break will start; nil during a break or when inactive.
     public private(set) var nextBreakDate: Date?
+    /// While a schedule holds the next break back (outside the hours, quiet hours,
+    /// or no full interval left before them): when the countdown to it starts.
+    /// nil when counting down, on a break, or without a schedule.
+    public var pausedUntil: Date? {
+        guard config.schedule != nil, let next = nextBreakDate else { return nil }
+        let resume = next.addingTimeInterval(-TimeInterval(config.interval))
+        return resume > Date() ? resume : nil
+    }
     private var breaksTaken: Int = 0
     private var wakeObserver: NSObjectProtocol?
     public private(set) var isActive = false
