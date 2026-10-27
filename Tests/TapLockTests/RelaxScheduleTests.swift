@@ -140,6 +140,16 @@ struct RelaxScheduleTests {
         #expect(s.activeSeconds(from: date(0, 0), to: date(day: 26, 0, 0), calendar: calendar) == 40 * 3600)
     }
 
+    @Test func pauseReasons() {
+        let s = RelaxSchedule(weekdays: weekdays, activeStart: 9 * 60, activeEnd: 18 * 60, quietStart: 12 * 60, quietEnd: 13 * 60)
+        #expect(s.pauseReason(at: date(7, 30), calendar: calendar) == .outsideHours)
+        #expect(s.pauseReason(at: date(18, 0), calendar: calendar) == .outsideHours)
+        #expect(s.pauseReason(at: date(day: 24, 10, 0), calendar: calendar) == .outsideHours) // Saturday
+        #expect(s.pauseReason(at: date(12, 30), calendar: calendar) == .quietHours)
+        #expect(s.pauseReason(at: date(11, 30), calendar: calendar) == .beforeQuietHours)
+        #expect(s.pauseReason(at: date(17, 30), calendar: calendar) == .doneForToday)
+    }
+
     @Test func configWithoutScheduleDecodes() throws {
         let json = #"{"interval":1500,"breakDuration":300,"theme":"breathing","color":"green","opacity":0.85,"silent":false,"showPostureReminder":true}"#
         let config = try JSONDecoder().decode(RelaxingSessionConfig.self, from: Data(json.utf8))
