@@ -1,5 +1,5 @@
 class Taplock < Formula
-  desc "Temporarily disable keyboard and trackpad input on your Mac"
+  desc "Temporarily disable keyboard and trackpad input, or take relaxing breaks on your Mac"
   homepage "https://github.com/ugurcandede/taplock"
   url "https://github.com/ugurcandede/taplock/releases/download/vVERSION/taplock-macos.zip"
   sha256 "SHA256_PLACEHOLDER"

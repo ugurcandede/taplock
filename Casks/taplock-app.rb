@@ -4,7 +4,7 @@ cask "taplock-app" do
 
   url "https://github.com/ugurcandede/taplock-app/releases/download/v#{version}/TapLock-macos.zip"
   name "TapLock"
-  desc "Menu bar app to temporarily disable keyboard and trackpad input on your Mac"
+  desc "Menu bar app to temporarily disable input, or take relaxing breaks on your Mac"
   homepage "https://github.com/ugurcandede/taplock-app"
 
   app "TapLock.app"

@@ -12,7 +12,7 @@
 </div>
 
 ---
-#### Releated
+#### Related
 <p style="text-align: center">
   <a href="https://ugurcandede.github.io/taplock-app"><img src="https://img.shields.io/badge/Website-000?style=flat-square&logo=safari&logoColor=white" alt="Website"></a>
   <a href="https://github.com/ugurcandede/taplock-app"><img src="https://img.shields.io/badge/App%20Repo-000?style=flat-square&logo=github&logoColor=white" alt="App Repo"></a>
@@ -76,6 +76,14 @@ taplock relax --config                         # Show saved config
 taplock relax --cancel                         # Stop relaxing session
 ```
 
+### Stats
+
+```bash
+taplock stats                                  # Today's summary
+taplock stats --week                           # Last 7 days
+taplock stats --all --json                     # All-time, machine-readable
+```
+
 ### Lock Options
 
 | Option | Description |
@@ -98,6 +106,7 @@ taplock relax --cancel                         # Stop relaxing session
 | `--color <value>` | Overlay color (default: `green`) |
 | `--opacity <0.1-1.0>` | Overlay opacity (default: `0.85`) |
 | `--silent` | Disable all sounds including pre-notification |
+| `--no-posture-reminder` | Disable posture reminder during session |
 | `--days <days>` | Only break on these days (e.g. `mon-fri`, `sat,sun`) |
 | `--hours <range>` | Only break between these times (e.g. `09:00-18:00`) |
 | `--quiet <range>` | No breaks in this window (e.g. `12:00-13:00`) |
@@ -107,6 +116,14 @@ taplock relax --cancel                         # Stop relaxing session
 | `--reset` | Delete saved configuration |
 
 Configuration is auto-saved when `--every` and `--break` are provided.
+
+### Stats Options
+
+| Option | Description |
+|---|---|
+| `--today` / `--week` / `--month` / `--all` | Time period (default: `--today`) |
+| `--json` | JSON output for scripting |
+| `--reset` | Delete the event log |
 
 ### Emergency Cancel
 
